@@ -76,6 +76,12 @@
     
     <button onclick="startTokenScan()">📷 Scan Token from Phone</button>
     
+    <div class="box" style="margin-top:15px;">
+        <p style="margin-bottom:8px;">Or enter token manually:</p>
+        <input type="text" id="manual-token" placeholder="Paste token here">
+        <button onclick="submitManualToken()">Use This Token</button>
+    </div>
+    
     <button class="btn-sec" onclick="resetCreds()" style="margin-top:20px;">Change Credentials</button>
 </div>
 
@@ -295,6 +301,12 @@ function submitTokenValue(token) {
     if (refreshToken) localStorage.setItem('rt', refreshToken);
     
     showCal();
+}
+
+function submitManualToken() {
+    var token = document.getElementById('manual-token').value.trim();
+    if (!token) return;
+    submitTokenValue(token);
 }
 
 // Fetch events
