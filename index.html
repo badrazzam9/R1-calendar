@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Calendar Today</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        /* ===== CSS Reset & Base ===== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        /* ===== Screen Containers ===== */
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 520px;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== Header ===== */
+        .app-header {
+            text-align: center;
+            margin-bottom: 32px;
+            margin-top: 24px;
+        }
+
+        .app-header h1,
+        .app-header h2 {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+
+        .app-header p {
+            font-size: 0.95rem;
+            color: #9a9abf;
+            margin-top: 6px;
+        }
+
+        /* ===== Buttons ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease;
+            outline: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6c63ff, #4a42d1);
+            color: #ffffff;
+            box-shadow: 0 4px 18px rgba(108, 99, 255, 0.35);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #7b73ff, #5a52e0);
+            box-shadow: 0 6px 24px rgba(108, 99, 255, 0.5);
+        }
+
+        .btn-google {
+            background: #ffffff;
+            color: #3c4043;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+            font-size: 1.05rem;
+        }
+
+        .btn-google:hover {
+            background: #f7f7f7;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+        }
+
+        .btn-google svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #9a9abf;
+            border: 1px solid #3a3a5c;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #c0c0e0;
+            border-color: #5a5a8c;
+        }
+
+        /* ===== QR Scanner Area ===== */
+        #qr-reader-container {
+            width: 100%;
+            max-width: 340px;
+            margin: 20px auto;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #16213e;
+            border: 2px solid #2a2a4a;
+            display: none;
+        }
+
+        #qr-reader {
+            width: 100%;
+        }
+
+        /* ===== Manual Input ===== */
+        .manual-input-section {
+            width: 100%;
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin: 8px 0;
+            color: #6a6a8a;
+            font-size: 0.85rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #2a2a4a;
+        }
+
+        .divider::before { margin-right: 12px; }
+        .divider::after { margin-left: 12px; }
+
+        .input-group {
+            display: flex;
+            width: 100%;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #3a3a5c;
+            border-radius: 10px;
+            background: #16213e;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-group input::placeholder {
+            color: #5a5a7a;
+        }
+
+        .input-group input:focus {
+            border-color: #6c63ff;
+        }
+
+        .input-group button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            background: #6c63ff;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .input-group button:hover {
+            background: #5a52e0;
+        }
+
+        /* ===== Error / Info Messages ===== */
+        .message {
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            margin-top: 16px;
+            width: 100%;
+            text-align: center;
+            display: none;
+        }
+
+        .message.error {
+            background: rgba(255, 82, 82, 0.15);
+            color: #ff6b6b;
+            border: 1px solid rgba(255, 82, 82, 0.3);
+        }
+
+        .message.success {
+            background: rgba(46, 213, 115, 0.15);
+            color: #2ed573;
+            border: 1px solid rgba(46, 213, 115, 0.3);
+        }
+
+        .message.visible {
+            display: block;
+        }
+
+        /* ===== Sign In Screen ===== */
+        .signin-content {
+            text-align: center;
+            margin-top: 60px;
+        }
+
+        .signin-content .icon-lock {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .signin-content p {
+            color: #9a9abf;
+            margin-bottom: 28px;
+            font-size: 0.95rem;
+            max-width: 360px;
+        }
+
+        /* ===== Calendar View ===== */
+        .calendar-header {
+            text-align: center;
+            margin-bottom: 28px;
+            width: 100%;
+        }
+
+        .calendar-header h2 {
+            font-size: 1.4rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .calendar-header .date-label {
+            font-size: 0.95rem;
+            color: #9a9abf;
+            margin-top: 4px;
+        }
+
+        /* ===== Timeline ===== */
+        .timeline {
+            width: 100%;
+            position: relative;
+            padding-left: 28px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #6c63ff, #3a3a5c);
+            border-radius: 2px;
+        }
+
+        .timeline-event {
+            position: relative;
+            margin-bottom: 20px;
+            padding: 16px 20px;
+            background: #16213e;
+            border-radius: 12px;
+            border: 1px solid #2a2a4a;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .timeline-event:hover {
+            border-color: #6c63ff;
+            box-shadow: 0 2px 16px rgba(108, 99, 255, 0.15);
+        }
+
+        .timeline-event::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 22px;
+            width: 12px;
+            height: 12px;
+            background: #6c63ff;
+            border-radius: 50%;
+            border: 2px solid #1a1a2e;
+            z-index: 1;
+        }
+
+        .event-time {
+            font-size: 0.82rem;
+            color: #6c63ff;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .event-title {
+            font-size: 1.05rem;
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .event-location {
+            font-size: 0.85rem;
+            color: #7a7a9a;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .event-location svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        /* ===== Empty State ===== */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+        }
+
+        .empty-state .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            opacity: 0.7;
+        }
+
+        .empty-state h3 {
+            font-size: 1.2rem;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: #7a7a9a;
+            font-size: 0.95rem;
+        }
+
+        /* ===== Reset Link ===== */
+        .reset-link {
+            margin-top: 28px;
+            font-size: 0.82rem;
+            color: #6a6a8a;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            transition: color 0.2s ease;
+            background: none;
+            border: none;
+            font-family: inherit;
+        }
+
+        .reset-link:hover {
+            color: #ff6b6b;
+        }
+
+        /* ===== Loading Spinner ===== */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #2a2a4a;
+            border-top-color: #6c63ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 40px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            text-align: center;
+            color: #9a9abf;
+            font-size: 0.95rem;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 480px) {
+            body {
+                padding: 14px;
+            }
+
+            .app-header h1,
+            .app-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .btn {
+                padding: 12px 22px;
+                font-size: 0.95rem;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .input-group button {
+                width: 100%;
+            }
+        }
+
+        /* ===== Scanning status ===== */
+        .scan-status {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #9a9abf;
+            margin-top: 10px;
+        }
+
+        /* ===== Calendar toolbar ===== */
+        .calendar-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .calendar-toolbar .user-info {
+            font-size: 0.85rem;
+            color: #7a7a9a;
+        }
+
+        .btn-signout {
+            background: transparent;
+            border: 1px solid #3a3a5c;
+            color: #9a9abf;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .btn-signout:hover {
+            background: rgba(255, 82, 82, 0.1);
+            color: #ff6b6b;
+            border-color: rgba(255, 82, 82, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== SCREEN 1: Setup / QR Scan ===== -->
+    <div id="screen-setup" class="screen">
+        <div class="app-header">
+            <h1>📅 Google Calendar Today</h1>
+            <p>Scan your Google OAuth Client ID to get started</p>
+        </div>
+
+        <button
+id="btn-scan"
+class="btn btn-primary"
+type="button"
+>
+            <svg
+width="20"
+height="20"
+viewBox="0 0 24 24"
+fill="none"
+stroke="currentColor"
+stroke-width="2"
+stroke-linecap="round"
+stroke-linejoin="round"
+>
+<path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+<path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+<path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+<path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+<rect
+x="7"
+y="7"
+width="10"
+height="10"
+rx="1"
+/>
+</svg>
+            Scan Client ID
+        </button>
+
+        <div id="qr-reader-container">
+            <div id="qr-reader"></div>
+        </div>
+        <div
+id="scan-status"
+class="scan-status"
+style="display:none;"
+>Scanning... Point your camera at a QR code</div>
+
+        <div id="setup-message" class="message"></div>
+
+        <div class="manual-input-section">
+            <div class="divider">or enter manually</div>
+            <div class="input-group">
+                <input
+type="text"
+id="manual-client-id"
+placeholder="Paste your Client ID here"
+autocomplete="off"
+>
+                <button id="btn-manual-save" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SCREEN 2: Sign In ===== -->
+    <div id="screen-signin" class="screen">
+        <div class="app-header">
+            <h2>📅 Google Calendar Today</h2>
+            <p>Sign in to view your schedule</p>
+        </div>
+
+        <div class="signin-content">
+            <div class="icon-lock">🔐</div>
+            <p>Authenticate with your Google account to access your calendar events for today.</p>
+
+            <button
+id="btn-google-signin"
+class="btn btn-google"
+type="button"
+>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+</svg>
+                Sign in with Google
+            </button>
+
+            <div id="signin-message" class="message"></div>
+        </div>
+
+        <button
+class="reset-link"
+id="btn-reset-signin"
+type="button"
+>Reset Client ID</button>
+    </div>
+
+    <!-- ===== SCREEN 3: Calendar Events ===== -->
+    <div id="screen-calendar" class="screen">
+        <div class="app-header">
+            <h2>📅 Google Calendar Today</h2>
+        </div>
+
+        <div class="calendar-toolbar">
+            <span class="user-info" id="user-email"></span>
+            <button
+class="btn-signout"
+id="btn-signout"
+type="button"
+>Sign Out</button>
+        </div>
+
+        <div class="calendar-header">
+            <h2>Today's Schedule</h2>
+            <div class="date-label" id="today-date-label"></div>
+        </div>
+
+        <div id="calendar-loading" style="display:none;">
+            <div class="spinner"></div>
+            <p class="loading-text">Fetching your events…</p>
+        </div>
+
+        <div
+id="calendar-events"
+class="timeline"
+style="display:none;"
+></div>
+
+        <div
+id="calendar-empty"
+class="empty-state"
+style="display:none;"
+>
+            <div class="empty-icon">🌤️</div>
+            <h3>No events scheduled for today</h3>
+            <p>Enjoy your free day! Your calendar is clear.</p>
+        </div>
+
+        <div
+id="calendar-error"
+class="message error"
+style="display:none;"
+></div>
+
+        <button
+class="reset-link"
+id="btn-reset-calendar"
+type="button"
+>Reset Client ID &amp; Sign Out</button>
+    </div>
+
+    <script>
+        /* ===================================================================
+           Google Calendar Today — Single Page Application
+           =================================================================== */
+
+        // ===== DOM References =====
+        const screenSetup = document.getElementById('screen-setup');
+        const screenSignin = document.getElementById('screen-signin');
+        const screenCalendar = document.getElementById('screen-calendar');
+
+        const btnScan = document.getElementById('btn-scan');
+        const qrReaderContainer = document.getElementById('qr-reader-container');
+        const scanStatus = document.getElementById('scan-status');
+        const setupMessage = document.getElementById('setup-message');
+        const manualClientIdInput = document.getElementById('manual-client-id');
+        const btnManualSave = document.getElementById('btn-manual-save');
+
+        const btnGoogleSignin = document.getElementById('btn-google-signin');
+        const signinMessage = document.getElementById('signin-message');
+        const btnResetSignin = document.getElementById('btn-reset-signin');
+
+        const calendarLoading = document.getElementById('calendar-loading');
+        const calendarEvents = document.getElementById('calendar-events');
+        const calendarEmpty = document.getElementById('calendar-empty');
+        const calendarError = document.getElementById('calendar-error');
+        const todayDateLabel = document.getElementById('today-date-label');
+        const userEmailEl = document.getElementById('user-email');
+        const btnSignout = document.getElementById('btn-signout');
+        const btnResetCalendar = document.getElementById('btn-reset-calendar');
+
+        // ===== State =====
+        let html5QrCode = null;
+        let accessToken = null;
+        let scannerRunning = false;
+
+        // ===== Utility: Show a message =====
+        function showMessage(el, text, type) {
+            el.textContent = text;
+            el.className = 'message ' + type + ' visible';
+            el.style.display = 'block';
+        }
+
+        function hideMessage(el) {
+            el.className = 'message';
+            el.style.display = 'none';
+        }
+
+        // ===== Screen Navigation =====
+        function showScreen(screen) {
+            screenSetup.classList.remove('active');
+            screenSignin.classList.remove('active');
+            screenCalendar.classList.remove('active');
+            screen.classList.add('active');
+        }
+
+        // ===== Initialization =====
+        function init() {
+            const storedClientId = localStorage.getItem('google_client_id');
+            if (storedClientId && storedClientId.trim().length > 0) {
+                showScreen(screenSignin);
+            } else {
+                showScreen(screenSetup);
+            }
+        }
+
+        // ===== QR Code Scanning =====
+        btnScan.addEventListener('click', async function () {
+            hideMessage(setupMessage);
+
+            // If scanner is already running, stop it
+            if (scannerRunning && html5QrCode) {
+                try {
+                    await html5QrCode.stop();
+                } catch (e) {
+                    // Ignore stop errors
+                }
+                scannerRunning = false;
+                qrReaderContainer.style.display = 'none';
+                scanStatus.style.display = 'none';
+                btnScan.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg> Scan Client ID';
+                return;
+            }
+
+            // Check if html5-qrcode library is loaded
+            if (typeof Html5Qrcode === 'undefined') {
+                showMessage(setupMessage, 'QR scanner library failed to load. Please use manual entry instead.', 'error');
+                return;
+            }
+
+            qrReaderContainer.style.display = 'block';
+            scanStatus.style.display = 'block';
+            btnScan.textContent = 'Stop Scanning';
+
+            try {
+                html5QrCode = new Html5Qrcode('qr-reader');
+                await html5QrCode.start(
+                    { facingMode: 'environment' },
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 }
+                    },
+                    onQrCodeSuccess,
+                    function () { /* ignore scan failures (no QR found in frame) */ }
+                );
+                scannerRunning = true;
+            } catch (err) {
+                qrReaderContainer.style.display = 'none';
+                scanStatus.style.display = 'none';
+                btnScan.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg> Scan Client ID';
+
+                if (err && (err.name === 'NotAllowedError' || (typeof err === 'string' && err.includes('Permission')))) {
+                    showMessage(setupMessage, 'Camera access denied. Please allow camera permissions and try again.', 'error');
+                } else {
+                    showMessage(setupMessage, 'Camera access denied. Please allow camera permissions and try again.', 'error');
+                }
+            }
+        });
+
+        // ===== QR Code Success Handler =====
+        async function onQrCodeSuccess(decodedText) {
+            // Stop the scanner
+            if (html5QrCode && scannerRunning) {
+                try {
+                    await html5QrCode.stop();
+                } catch (e) {
+                    // Ignore
+                }
+                scannerRunning = false;
+            }
+
+            qrReaderContainer.style.display = 'none';
+            scanStatus.style.display = 'none';
+            btnScan.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg> Scan Client ID';
+
+            const clientId = decodedText.trim();
+            if (clientId.length === 0) {
+                showMessage(setupMessage, 'Scanned QR code was empty. Please try again.', 'error');
+                return;
+            }
+
+            localStorage.setItem('google_client_id', clientId);
+            showMessage(setupMessage, 'Client ID captured successfully!', 'success');
+
+            // Transition to sign-in screen after a brief delay
+            setTimeout(function () {
+                hideMessage(setupMessage);
+                showScreen(screenSignin);
+            }, 1000);
+        }
+
+        // ===== Manual Client ID Entry =====
+        btnManualSave.addEventListener('click', function () {
+            hideMessage(setupMessage);
+            const clientId = manualClientIdInput.value.trim();
+            if (clientId.length === 0) {
+                showMessage(setupMessage, 'Please enter a valid Client ID.', 'error');
+                return;
+            }
+
+            localStorage.setItem('google_client_id', clientId);
+            showMessage(setupMessage, 'Client ID saved successfully!', 'success');
+
+            setTimeout(function () {
+                hideMessage(setupMessage);
+                manualClientIdInput.value = '';
+                showScreen(screenSignin);
+            }, 1000);
+        });
+
+        // Allow pressing Enter in the manual input
+        manualClientIdInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                btnManualSave.click();
+            }
+        });
+
+        // ===== Google Sign In =====
+        btnGoogleSignin.addEventListener('click', function () {
+            hideMessage(signinMessage);
+
+            const clientId = localStorage.getItem('google_client_id');
+            if (!clientId || clientId.trim().length === 0) {
+                showMessage(signinMessage, 'No Client ID found. Please go back and set one up.', 'error');
+                return;
+            }
+
+            // Check if GIS library is loaded
+            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+                showMessage(signinMessage, 'Google Identity Services library failed to load. Please check your internet connection and refresh.', 'error');
+                return;
+            }
+
+            try {
+                const tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: clientId.trim(),
+                    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+                    callback: function (tokenResponse) {
+                        if (tokenResponse.error) {
+                            showMessage(signinMessage, 'Authentication failed: ' + (tokenResponse.error_description || tokenResponse.error), 'error');
+                            return;
+                        }
+                        accessToken = tokenResponse.access_token;
+                        hideMessage(signinMessage);
+                        showScreen(screenCalendar);
+                        fetchCalendarEvents();
+                    },
+                    error_callback: function (err) {
+                        showMessage(signinMessage, 'Authentication was cancelled or failed. Please try again.', 'error');
+                    }
+                });
+
+                tokenClient.requestAccessToken();
+            } catch (err) {
+                showMessage(signinMessage, 'Failed to initialize authentication: ' + err.message, 'error');
+            }
+        });
+
+        // ===== Fetch Calendar Events =====
+        async function fetchCalendarEvents() {
+            // Show loading state
+            calendarLoading.style.display = 'block';
+            calendarEvents.style.display = 'none';
+            calendarEmpty.style.display = 'none';
+            calendarError.style.display = 'none';
+
+            // Set today's date label
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            todayDateLabel.textContent = now.toLocaleDateString('en-US', options);
+
+            // Calculate start and end of today
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+            const timeMin = startOfDay.toISOString();
+            const timeMax = endOfDay.toISOString();
+
+            const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
+                + '?timeMin=' + encodeURIComponent(timeMin)
+                + '&timeMax=' + encodeURIComponent(timeMax)
+                + '&singleEvents=true'
+                + '&orderBy=startTime';
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + accessToken
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(function () { return {}; });
+                    throw new Error(errorData.error ? errorData.error.message : 'Failed to fetch events (HTTP ' + response.status + ')');
+                }
+
+                const data = await response.json();
+                calendarLoading.style.display = 'none';
+
+                // Fetch user info for display
+                fetchUserInfo();
+
+                if (!data.items || data.items.length === 0) {
+                    calendarEmpty.style.display = 'block';
+                    return;
+                }
+
+                renderEvents(data.items);
+            } catch (err) {
+                calendarLoading.style.display = 'none';
+                calendarError.textContent = 'Failed to load events: ' + err.message;
+                calendarError.style.display = 'block';
+            }
+        }
+
+        // ===== Fetch User Info =====
+        async function fetchUserInfo() {
+            try {
+                const response = await fetch('https://developers.google.com/identity/protocols/oauth2', {
+                    headers: { 'Authorization': 'Bearer ' + accessToken }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    userEmailEl.textContent = data.email || '';
+                }
+            } catch (e) {
+                // Non-critical, ignore
+            }
+        }
+
+        // ===== Render Events =====
+        function renderEvents(events) {
+            calendarEvents.innerHTML = '';
+
+            events.forEach(function (event) {
+                var eventEl = document.createElement('div');
+                eventEl.className = 'timeline-event';
+
+                // Format time
+                var timeStr = '';
+                if (event.start.dateTime) {
+                    var startTime = new Date(event.start.dateTime);
+                    var endTime = event.end && event.end.dateTime ? new Date(event.end.dateTime) : null;
+                    timeStr = formatTime(startTime);
+                    if (endTime) {
+                        timeStr += ' – ' + formatTime(endTime);
+                    }
+                } else if (event.start.date) {
+                    timeStr = 'All Day';
+                }
+
+                // Build event HTML
+                var html = '<div class="event-time">' + escapeHtml(timeStr) + '</div>';
+                html += '<div class="event-title">' + escapeHtml(event.summary || '(No title)') + '</div>';
+
+                if (event.location) {
+                    html += '<div class="event-location">'
+                        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'
+                        + escapeHtml(event.location)
+                        + '</div>';
+                }
+
+                eventEl.innerHTML = html;
+                calendarEvents.appendChild(eventEl);
+            });
+
+            calendarEvents.style.display = 'block';
+        }
+
+        // ===== Format Time Helper =====
+        function formatTime(date) {
+            var hours = date.getHours();
+            var minutes = date.getMinutes();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            var minuteStr = minutes < 10 ? '0' + minutes : minutes;
+            return hours + ':' + minuteStr + ' ' + ampm;
+        }
+
+        // ===== Escape HTML Helper =====
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        // ===== Reset / Sign Out =====
+        btnResetSignin.addEventListener('click', function () {
+            localStorage.removeItem('google_client_id');
+            accessToken = null;
+            hideMessage(signinMessage);
+            showScreen(screenSetup);
+        });
+
+        btnSignout.addEventListener('click', function () {
+            accessToken = null;
+            calendarEvents.innerHTML = '';
+            calendarEvents.style.display = 'none';
+            calendarEmpty.style.display = 'none';
+            calendarError.style.display = 'none';
+            calendarLoading.style.display = 'none';
+            userEmailEl.textContent = '';
+            showScreen(screenSignin);
+        });
+
+        btnResetCalendar.addEventListener('click', function () {
+            localStorage.removeItem('google_client_id');
+            accessToken = null;
+            calendarEvents.innerHTML = '';
+            calendarEvents.style.display = 'none';
+            calendarEmpty.style.display = 'none';
+            calendarError.style.display = 'none';
+            calendarLoading.style.display = 'none';
+            userEmailEl.textContent = '';
+            showScreen(screenSetup);
+        });
+
+        // ===== Start the App =====
+        init();
+    </script>
+</body>
+</html>
