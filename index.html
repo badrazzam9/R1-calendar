@@ -4,8 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Google Calendar Today</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- Load Google GSI library with fallback -->
+    <script>
+        window.googleLibraryLoaded = false;
+        function loadGoogleLibrary() {
+            return new Promise((resolve, reject) => {
+                if (typeof google !== 'undefined' && google.accounts?.oauth2) {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = 'https://accounts.google.com/gsi/client';
+                script.async = true;
+                script.defer = true;
+                script.onload = () => {
+                    // Wait a bit for google to initialize
+                    setTimeout(() => {
+                        if (google.accounts?.oauth2) {
+                            window.googleLibraryLoaded = true;
+                            resolve();
+                        } else {
+                            reject(new Error('Google library not ready'));
+                        }
+                    }, 500);
+                };
+                script.onerror = () => reject(new Error('Failed to load Google library'));
+                document.head.appendChild(script);
+                
+                // Timeout after 10 seconds
+                setTimeout(() => reject(new Error('Google library timeout')), 10000);
+            });
+        }
+    </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -32,6 +63,7 @@
         .btn:active { transform: scale(0.98); }
         .btn-primary { background: linear-gradient(135deg, #6c63ff, #4a42d1); color: #fff; }
         .btn-google { background: #fff; color: #3c4043; font-size: 1.05rem; }
+        .btn-google:disabled { background: #ccc; cursor: not-allowed; }
         .btn-secondary { background: transparent; color: #9a9abf; border: 1px solid #3a3a5c; }
         .btn svg { width: 20px; height: 20px; }
         .input-group { display: flex; width: 100%; gap: 10px; margin-top: 16px; }
@@ -213,8 +245,15 @@
         // Init
         function init() {
             const clientId = localStorage.getItem('google_client_id');
-            if (clientId && clientId.trim().length > 0) showScreen(screenSignin);
-            else showScreen(screenSetup);
+            if (clientId && clientId.trim().length > 0) {
+                showScreen(screenSignin);
+                // Pre-load Google library in background
+                loadGoogleLibrary().catch(() => {
+                    // Ignore - will be loaded on sign-in click
+                });
+            } else {
+                showScreen(screenSetup);
+            }
         }
 
         // QR Scanner using jsQR
@@ -320,7 +359,7 @@
         });
 
         // Google Sign In
-        btnGoogleSignin.addEventListener('click', () => {
+        btnGoogleSignin.addEventListener('click', async () => {
             hideMessage(signinMessage);
             const clientId = localStorage.getItem('google_client_id');
             if (!clientId) {
@@ -328,16 +367,28 @@
                 return;
             }
             
-            if (typeof google === 'undefined' || !google.accounts?.oauth2) {
-                showMessage(signinMessage, 'Google library not loaded. Refresh and try again.', 'error');
+            // Show loading while ensuring Google library is loaded
+            btnGoogleSignin.textContent = 'Loading...';
+            btnGoogleSignin.disabled = true;
+            
+            try {
+                await loadGoogleLibrary();
+            } catch (err) {
+                btnGoogleSignin.textContent = 'Sign in with Google';
+                btnGoogleSignin.disabled = false;
+                showMessage(signinMessage, 'Google library failed to load. Refresh the page and try again.', 'error');
                 return;
             }
+            
+            btnGoogleSignin.textContent = 'Loading...';
             
             try {
                 const tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: clientId,
                     scope: 'https://www.googleapis.com/auth/calendar.readonly',
                     callback: (resp) => {
+                        btnGoogleSignin.textContent = 'Sign in with Google';
+                        btnGoogleSignin.disabled = false;
                         if (resp.error) {
                             showMessage(signinMessage, 'Auth failed: ' + (resp.error_description || resp.error), 'error');
                             return;
@@ -349,6 +400,8 @@
                 });
                 tokenClient.requestAccessToken();
             } catch (err) {
+                btnGoogleSignin.textContent = 'Sign in with Google';
+                btnGoogleSignin.disabled = false;
                 showMessage(signinMessage, 'Auth error: ' + err.message, 'error');
             }
         });
