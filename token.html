@@ -7,10 +7,12 @@
     <style>
         body { font-family: sans-serif; background: #1a1a2e; color: #fff; margin: 0; padding: 20px; min-height: 100vh; }
         h1 { text-align: center; margin-bottom: 20px; }
+        h2 { text-align: center; margin-bottom: 15px; }
         .box { background: #16213e; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center; }
         .err { background: rgba(255,0,0,0.2); color: #ff6b6b; }
         .ok { background: rgba(0,255,0,0.2); color: #6bff6b; }
         .token-box { background: #0f0f23; padding: 15px; border-radius: 8px; word-break: break-all; font-size: 0.7rem; color: #6c63ff; margin: 15px 0; }
+        button { width: 100%; padding: 14px; background: #6c63ff; color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -20,13 +22,12 @@
     <div id="error" class="box err" style="display:none;"></div>
     <div id="success" class="box ok" style="display:none;">
         <h2>✅ Success!</h2>
-        <p>Copy this token back to R1:</p>
+        <p>Convert this to QR for R1 to scan:</p>
         <div id="token-display" class="token-box"></div>
-        <p style="font-size:0.8rem;color:#888;">Select all, copy, and paste in R1 app</p>
+        <p style="font-size:0.8rem;color:#888;">Make this a QR code and scan with R1!</p>
     </div>
 
 <script>
-// Get params
 var params = new URLSearchParams(window.location.search);
 var code = params.get('code');
 var error = params.get('error');
@@ -39,11 +40,10 @@ if (error) {
     document.getElementById('error').textContent = 'Error: ' + error;
     document.getElementById('error').style.display = 'block';
 } else if (code) {
-    // Show code for user to copy
     document.getElementById('token-display').textContent = code;
     document.getElementById('success').style.display = 'block';
     
-    // Also try to exchange for real token
+    // Try exchange
     if (clientId && clientSecret) {
         exchangeCode(code, clientId, clientSecret);
     }
@@ -67,15 +67,14 @@ function exchangeCode(code, cid, csec) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.access_token) {
-            var tokenData = JSON.stringify({
+            document.getElementById('token-display').textContent = JSON.stringify({
                 access_token: data.access_token,
                 refresh_token: data.refresh_token || ''
             });
-            document.getElementById('token-display').textContent = tokenData;
         }
     })
     .catch(function(e) {
-        // Keep showing code anyway
+        // Keep showing code
     });
 }
 </script>
