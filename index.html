@@ -23,7 +23,21 @@
         .message.error { background: rgba(255,82,82,0.15); color: #ff6b6b; }
         .message.success { background: rgba(46,213,115,0.15); color: #2ed573; }
         .message.visible { display: block; }
-        .hint { font-size: 0.8rem; color: #6a6a8a; margin-top: 8px; text-align: center; }
+        
+        /* Steps */
+        .steps { width: 100%; text-align: left; margin: 20px 0; }
+        .step { background: #16213e; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+        .step-num { display: inline-block; width: 28px; height: 28px; background: #6c63ff; border-radius: 50%; text-align: center; line-height: 28px; font-weight: 700; margin-right: 10px; }
+        .step-title { font-weight: 600; color: #fff; }
+        .step-desc { font-size: 0.85rem; color: #9a9abf; margin-top: 4px; }
+        
+        /* Code input */
+        .code-input { 
+            font-size: 1.5rem !important; 
+            text-align: center; 
+            letter-spacing: 8px;
+            font-family: monospace;
+        }
         
         /* Loading */
         .spinner { width: 40px; height: 40px; border: 3px solid #2a2a4a; border-top-color: #6c63ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 40px auto; }
@@ -51,38 +65,81 @@
 </head>
 <body>
 
-    <!-- SCREEN 1: Setup -->
+    <!-- SCREEN 1: Setup - Client ID -->
     <div id="screen-setup" class="screen">
         <div class="app-header">
             <h1>📅 Google Calendar</h1>
-            <p>Enter your public calendar URL</p>
+            <p>Enter your OAuth credentials</p>
         </div>
         
-        <p style="font-size:0.85rem;color:#9a9abf;text-align:center;margin-bottom:16px;">
-            No login needed! Just get your public calendar link from Google Calendar settings.
-        </p>
-        
         <div class="input-group">
-            <input type="text" id="calendar-url" placeholder="https://calendar.google.com/calendar/ical/...">
-            <button id="btn-save">Load Calendar</button>
+            <input type="text" id="client-id" placeholder="Client ID (xxxxx.apps.googleusercontent.com)">
+            <input type="password" id="client-secret" placeholder="Client Secret">
+            <button id="btn-save-creds">Save Credentials</button>
         </div>
         
         <div id="setup-message" class="message"></div>
         
-        <p class="hint">
-            How to get the link:<br>
-            1. Google Calendar → Settings → your calendar<br>
-            2. Scroll to "Integrate calendar"<br>
-            3. Copy "Public URL in iCal format"
+        <p style="font-size:0.8rem;color:#6a6a8a;margin-top:16px;text-align:center;">
+            Need credentials?<br>
+            1. Go to console.cloud.google.com<br>
+            2. APIs & Services → Credentials<br>
+            3. Create OAuth Client ID → Desktop app<br>
+            4. Copy Client ID and Client Secret
         </p>
     </div>
 
-    <!-- SCREEN 2: Calendar -->
+    <!-- SCREEN 2: Sign In -->
+    <div id="screen-signin" class="screen">
+        <div class="app-header">
+            <h2>🔐 Sign in to Google</h2>
+            <p>Follow these steps:</p>
+        </div>
+        
+        <div class="steps">
+            <div class="step">
+                <span class="step-num">1</span>
+                <span class="step-title">Open Google Sign-In</span>
+                <div class="step-desc">Tap the button below to open Google</div>
+            </div>
+            <div class="step">
+                <span class="step-num">2</span>
+                <span class="step-title">Sign in with Google</span>
+                <div class="step-desc">Use your browser to sign in</div>
+            </div>
+            <div class="step">
+                <span class="step-num">3</span>
+                <span class="step-title">Enter the Code</span>
+                <div class="step-desc">Google shows a code - enter it below</div>
+            </div>
+        </div>
+        
+        <button id="btn-open-google" class="btn btn-primary">🔑 Open Google Sign-In</button>
+        
+        <div class="input-group">
+            <input type="text" id="auth-code" class="code-input" placeholder="Enter code here">
+            <button id="btn-submit-code">Submit Code</button>
+        </div>
+        
+        <div id="signin-message" class="message"></div>
+        
+        <button class="reset-link" id="btn-reset-creds">Change Credentials</button>
+    </div>
+
+    <!-- SCREEN 3: Loading -->
+    <div id="screen-loading" class="screen">
+        <div class="app-header">
+            <h2>⏳ Getting token...</h2>
+        </div>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- SCREEN 4: Calendar -->
     <div id="screen-calendar" class="screen">
         <div class="app-header"><h2>📅 Today's Calendar</h2></div>
         
         <div class="calendar-toolbar">
-            <span style="font-size:0.8rem;color:#7a7a9a;" id="calendar-name">Calendar</span>
+            <span style="font-size:0.8rem;color:#7a7a9a;" id="user-email">Calendar</span>
             <button class="btn-refresh" id="btn-refresh">🔄 Refresh</button>
         </div>
         
@@ -100,109 +157,173 @@
         </div>
         <div id="calendar-error" class="message error" style="display:none;"></div>
         
-        <button class="reset-link" id="btn-reset">Change Calendar URL</button>
+        <button class="reset-link" id="btn-reset">Sign Out</button>
     </div>
 
     <script>
         // DOM
         const screenSetup = document.getElementById('screen-setup');
+        const screenSignin = document.getElementById('screen-signin');
+        const screenLoading = document.getElementById('screen-loading');
         const screenCalendar = document.getElementById('screen-calendar');
         
-        const calendarUrlInput = document.getElementById('calendar-url');
-        const btnSave = document.getElementById('btn-save');
+        const clientIdInput = document.getElementById('client-id');
+        const clientSecretInput = document.getElementById('client-secret');
+        const btnSaveCreds = document.getElementById('btn-save-creds');
         const setupMessage = document.getElementById('setup-message');
+        
+        const btnOpenGoogle = document.getElementById('btn-open-google');
+        const authCodeInput = document.getElementById('auth-code');
+        const btnSubmitCode = document.getElementById('btn-submit-code');
+        const signinMessage = document.getElementById('signin-message');
         
         const calendarLoading = document.getElementById('calendar-loading');
         const calendarEvents = document.getElementById('calendar-events');
         const calendarEmpty = document.getElementById('calendar-empty');
         const calendarError = document.getElementById('calendar-error');
         const todayDateLabel = document.getElementById('today-date-label');
-        const calendarName = document.getElementById('calendar-name');
         const btnRefresh = document.getElementById('btn-refresh');
         const btnReset = document.getElementById('btn-reset');
+        const btnResetCreds = document.getElementById('btn-reset-creds');
 
-        function showMessage(text, type) {
-            setupMessage.textContent = text;
-            setupMessage.className = 'message ' + type + ' visible';
+        let accessToken = null;
+        let refreshToken = null;
+        let clientId = null;
+        let clientSecret = null;
+
+        function showMessage(el, text, type) {
+            el.textContent = text;
+            el.className = 'message ' + type + ' visible';
         }
         
-        function showScreen(screen) {
-            screenSetup.classList.remove('active');
-            screenCalendar.classList.remove('active');
-            screen.classList.add('active');
+        function showScreen(s) {
+            [screenSetup, screenSignin, screenLoading, screenCalendar].forEach(x => x.classList.remove('active'));
+            s.classList.add('active');
         }
 
-        // Parse ICS format
-        function parseICS(icsData) {
-            const events = [];
-            const lines = icsData.split(/\r?\n/);
-            let inEvent = false;
-            let event = {};
+        // Save credentials
+        btnSaveCreds.addEventListener('click', () => {
+            clientId = clientIdInput.value.trim();
+            clientSecret = clientSecretInput.value.trim();
             
-            for (let line of lines) {
-                if (line === 'BEGIN:VEVENT') {
-                    inEvent = true;
-                    event = {};
-                } else if (line === 'END:VEVENT') {
-                    if (event.start && event.summary) {
-                        events.push(event);
-                    }
-                    inEvent = false;
-                } else if (inEvent) {
-                    if (line.startsWith('DTSTART')) {
-                        const match = line.match(/DTSTART(?:;VALUE=DATE)?:?(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
-                        if (match) {
-                            const [, year, month, day, hour, min, sec] = match;
-                            if (hour) {
-                                event.start = new Date(year, month-1, day, hour, min, sec);
-                            } else {
-                                event.start = new Date(year, month-1, day);
-                                event.allDay = true;
-                            }
-                        }
-                    } else if (line.startsWith('DTEND')) {
-                        const match = line.match(/DTEND(?:;VALUE=DATE)?:?(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
-                        if (match) {
-                            const [, year, month, day, hour, min, sec] = match;
-                            if (hour) {
-                                event.end = new Date(year, month-1, day, hour, min, sec);
-                            } else {
-                                event.end = new Date(year, month-1, day);
-                            }
-                        }
-                    } else if (line.startsWith('SUMMARY:')) {
-                        event.summary = line.substring(8);
-                    } else if (line.startsWith('DESCRIPTION:')) {
-                        event.description = line.substring(12);
-                    } else if (line.startsWith('LOCATION:')) {
-                        event.location = line.substring(9);
-                    }
-                }
-            }
-            
-            return events;
-        }
-
-        // Get today's events
-        function getTodayEvents(events) {
-            const now = new Date();
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-            
-            return events.filter(ev => {
-                if (!ev.start) return false;
-                return ev.start >= startOfDay && ev.start < endOfDay;
-            }).sort((a, b) => a.start - b.start);
-        }
-
-        // Fetch Calendar
-        async function fetchCalendar() {
-            const url = localStorage.getItem('calendar_url');
-            if (!url) {
-                showScreen(screenSetup);
+            if (!clientId || !clientSecret) {
+                showMessage(setupMessage, 'Please enter both Client ID and Secret', 'error');
                 return;
             }
             
+            if (!clientId.includes('.apps.googleusercontent.com')) {
+                showMessage(setupMessage, 'Invalid Client ID format', 'error');
+                return;
+            }
+            
+            localStorage.setItem('oauth_client_id', clientId);
+            localStorage.setItem('oauth_client_secret', clientSecret);
+            
+            showMessage(setupMessage, 'Credentials saved!', 'success');
+            setTimeout(() => showScreen(screenSignin), 800);
+        });
+
+        // Open Google OAuth - use redirect_oob
+        btnOpenGoogle.addEventListener('click', () => {
+            if (!clientId) {
+                clientId = localStorage.getItem('oauth_client_id');
+                clientSecret = localStorage.getItem('oauth_client_secret');
+            }
+            
+            // Use OOB (Out-of-Band) flow - shows code on Google page
+            const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
+                'client_id=' + encodeURIComponent(clientId) +
+                '&redirect_uri=urn:ietf:wg:oauth:2.0:oob' +
+                '&response_type=code' +
+                '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
+                '&access_type=offline' +
+                '&include_granted_scopes=true' +
+                '&prompt=consent';
+            
+            // Open in NEW tab/window - don't redirect current page
+            window.open(authUrl, '_blank');
+            
+            showMessage(signinMessage, 'Google opened in new tab! After signing in, you\'ll see a code. Copy it and paste below.', 'success');
+        });
+
+        // Submit code
+        btnSubmitCode.addEventListener('click', async () => {
+            const code = authCodeInput.value.trim();
+            if (!code) {
+                showMessage(signinMessage, 'Enter the code from Google', 'error');
+                return;
+            }
+            
+            showScreen(screenLoading);
+            
+            try {
+                // Exchange code for tokens
+                const resp = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        code: code,
+                        grant_type: 'authorization_code',
+                        redirect_uri: 'urn:ietf:wg:oauth:2.0:oob'
+                    })
+                });
+                
+                const data = await resp.json();
+                
+                if (data.error) {
+                    showMessage(signinMessage, 'Error: ' + (data.error_description || data.error), 'error');
+                    showScreen(screenSignin);
+                    return;
+                }
+                
+                accessToken = data.access_token;
+                refreshToken = data.refresh_token;
+                
+                localStorage.setItem('oauth_access_token', accessToken);
+                localStorage.setItem('oauth_refresh_token', refreshToken);
+                localStorage.setItem('oauth_token_time', Date.now().toString());
+                
+                showScreen(screenCalendar);
+                fetchEvents();
+                
+            } catch(err) {
+                showMessage(signinMessage, 'Error: ' + err.message, 'error');
+                showScreen(screenSignin);
+            }
+        });
+
+        // Refresh token
+        async function refreshAccessToken() {
+            if (!refreshToken) return false;
+            
+            try {
+                const resp = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        refresh_token: refreshToken,
+                        grant_type: 'refresh_token'
+                    })
+                });
+                
+                const data = await resp.json();
+                
+                if (data.access_token) {
+                    accessToken = data.access_token;
+                    localStorage.setItem('oauth_access_token', accessToken);
+                    localStorage.setItem('oauth_token_time', Date.now().toString());
+                    return true;
+                }
+            } catch(e) {}
+            return false;
+        }
+
+        // Fetch Calendar
+        async function fetchEvents() {
             calendarLoading.style.display = 'block';
             calendarEvents.style.display = 'none';
             calendarEmpty.style.display = 'none';
@@ -211,87 +332,93 @@
             const now = new Date();
             todayDateLabel.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
             
+            const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+            const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+            
             try {
-                // Try fetching directly
-                let icsData;
-                try {
-                    const resp = await fetch(url);
-                    icsData = await resp.text();
-                } catch(e) {
-                    // If direct fails, try proxy
-                    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-                    const resp = await fetch(proxyUrl);
-                    icsData = await resp.text();
+                const resp = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}&singleEvents=true&orderBy=startTime`, {
+                    headers: { 'Authorization': 'Bearer ' + accessToken }
+                });
+                
+                if (resp.status === 401) {
+                    // Token expired, try refresh
+                    const refreshed = await refreshAccessToken();
+                    if (refreshed) {
+                        fetchEvents(); // Retry
+                        return;
+                    }
                 }
                 
-                const events = parseICS(icsData);
-                const todayEvents = getTodayEvents(events);
+                if (!resp.ok) throw new Error('Failed to fetch');
+                const data = await resp.json();
                 
                 calendarLoading.style.display = 'none';
                 
-                if (todayEvents.length === 0) {
+                if (!data.items || data.items.length === 0) {
                     calendarEmpty.style.display = 'block';
                     return;
                 }
                 
-                calendarEvents.innerHTML = todayEvents.map(ev => {
-                    const time = ev.allDay ? 'All Day' : formatTime(ev.start);
-                    return '<div class="timeline-event"><div class="event-time">' + esc(time) + '</div><div class="event-title">' + esc(ev.summary) + '</div>' + (ev.location ? '<div class="event-location">📍 ' + esc(ev.location) + '</div>' : '') + '</div>';
+                calendarEvents.innerHTML = data.items.map(ev => {
+                    const s = ev.start?.dateTime ? new Date(ev.start.dateTime) : null;
+                    const e = ev.end?.dateTime ? new Date(ev.end.dateTime) : null;
+                    const t = s ? (e ? formatTime(s) + ' – ' + formatTime(e) : formatTime(s)) : 'All Day';
+                    return '<div class="timeline-event"><div class="event-time">' + esc(t) + '</div><div class="event-title">' + esc(ev.summary || '(No title)') + '</div>' + (ev.location ? '<div class="event-location">📍 ' + esc(ev.location) + '</div>' : '') + '</div>';
                 }).join('');
                 calendarEvents.style.display = 'block';
                 
-            } catch (err) {
+            } catch(err) {
                 calendarLoading.style.display = 'none';
-                calendarError.textContent = 'Error loading calendar: ' + err.message;
+                calendarError.textContent = 'Error: ' + err.message;
                 calendarError.style.display = 'block';
             }
         }
         
-        function formatTime(d) {
-            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        }
-        
-        function esc(t) {
-            const d = document.createElement('div');
-            d.textContent = t;
-            return d.innerHTML;
-        }
-
-        // Save URL
-        btnSave.addEventListener('click', () => {
-            const url = calendarUrlInput.value.trim();
-            if (!url) {
-                showMessage('Please enter a URL', 'error');
-                return;
-            }
-            if (!url.includes('calendar.google.com') && !url.includes('ical')) {
-                showMessage('Please enter a valid Google Calendar URL', 'error');
-                return;
-            }
-            localStorage.setItem('calendar_url', url);
-            showMessage('Calendar saved!', 'success');
-            setTimeout(() => {
-                showScreen(screenCalendar);
-                fetchCalendar();
-            }, 800);
-        });
+        function formatTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+        function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
         // Refresh
-        btnRefresh.addEventListener('click', fetchCalendar);
+        btnRefresh.addEventListener('click', fetchEvents);
         
         // Reset
-        btnReset.addEventListener('click', () => {
-            localStorage.removeItem('calendar_url');
-            calendarUrlInput.value = '';
+        btnReset.onclick = () => {
+            localStorage.removeItem('oauth_access_token');
+            localStorage.removeItem('oauth_refresh_token');
+            accessToken = null;
+            refreshToken = null;
+            showScreen(screenSignin);
+        };
+        
+        btnResetCreds.onclick = () => {
+            localStorage.clear();
+            clientIdInput.value = '';
+            clientSecretInput.value = '';
             showScreen(screenSetup);
-        });
+        };
 
         // Init
         function init() {
-            const url = localStorage.getItem('calendar_url');
-            if (url) {
+            clientId = localStorage.getItem('oauth_client_id');
+            clientSecret = localStorage.getItem('oauth_client_secret');
+            accessToken = localStorage.getItem('oauth_access_token');
+            refreshToken = localStorage.getItem('oauth_refresh_token');
+            
+            // Check if token needs refresh
+            const tokenTime = localStorage.getItem('oauth_token_time');
+            if (accessToken && tokenTime && Date.now() - parseInt(tokenTime) > 3500000) {
+                // Try refresh
+                refreshAccessToken().then(ok => {
+                    if (ok) showScreen(screenCalendar);
+                    else showScreen(screenSetup);
+                });
+                return;
+            }
+            
+            if (accessToken && refreshToken) {
                 showScreen(screenCalendar);
-                fetchCalendar();
+                fetchEvents();
+            } else if (clientId && clientSecret) {
+                showScreen(screenSignin);
             } else {
                 showScreen(screenSetup);
             }
