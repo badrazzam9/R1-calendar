@@ -53,6 +53,8 @@ if (error) {
 }
 
 function exchangeCode(code, cid, csec) {
+    var redirectUri = 'https://badrazzam9.github.io/R1-calendar/token.html';
+    
     fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -60,7 +62,7 @@ function exchangeCode(code, cid, csec) {
               '&client_secret=' + encodeURIComponent(csec) +
               '&code=' + encodeURIComponent(code) +
               '&grant_type=authorization_code' +
-              '&redirect_uri=' + encodeURIComponent(window.location.href.split('?')[0])
+              '&redirect_uri=' + encodeURIComponent(redirectUri)
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
