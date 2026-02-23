@@ -16,75 +16,59 @@
         h1 { font-size: 1.5rem; margin-bottom: 8px; }
         p { color: #9a9abf; margin-bottom: 20px; }
         
-        .code-display { 
-            background: #16213e; border: 2px solid #6c63ff; 
-            border-radius: 12px; padding: 24px; margin: 20px 0; 
-        }
-        .code-display .label { font-size: 0.85rem; color: #9a9abf; margin-bottom: 8px; }
-        .code-display .code { 
-            font-size: 2.5rem; font-weight: 700; color: #6c63ff; 
-            letter-spacing: 6px; 
-        }
-        
         .btn { 
             display: inline-flex; align-items: center; justify-content: center;
-            padding: 14px 28px; border: none; border-radius: 10px; 
-            font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%;
-            margin-bottom: 12px;
+            padding: 16px 28px; border: none; border-radius: 12px; 
+            font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%;
+            margin-bottom: 14px;
         }
         .btn-primary { background: #4285f4; color: #fff; }
         .btn-success { background: #2ed573; color: #fff; }
-        .btn-secondary { background: transparent; color: #9a9abf; border: 1px solid #3a3a5c; }
         
         .token-box { 
-            background: #16213e; padding: 16px; border-radius: 10px; 
-            margin: 16px 0; display: none; 
+            background: #16213e; padding: 16px; border-radius: 12px; 
+            margin: 16px 0; 
         }
-        .token-box .label { font-size: 0.8rem; color: #9a9abf; margin-bottom: 8px; }
+        .token-box .label { font-size: 0.85rem; color: #9a9abf; margin-bottom: 10px; }
         .token-box textarea { 
-            width: 100%; height: 60px; background: #1a1a2e; 
-            border: 1px solid #3a3a5c; border-radius: 6px; 
-            color: #e0e0e0; font-family: monospace; font-size: 0.7rem;
-            padding: 8px; resize: none;
+            width: 100%; height: 80px; background: #1a1a2e; 
+            border: 1px solid #3a3a5c; border-radius: 8px; 
+            color: #6c63ff; font-family: monospace; font-size: 0.75rem;
+            padding: 10px; resize: none; text-align: center;
         }
         
         .spinner { 
-            width: 40px; height: 40px; border: 3px solid #2a2a4a; 
+            width: 50px; height: 50px; border: 4px solid #2a2a4a; 
             border-top-color: #6c63ff; border-radius: 50%; 
-            animation: spin 0.8s linear infinite; margin: 20px auto; display: none;
+            animation: spin 0.8s linear infinite; margin: 30px auto;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        .error { background: rgba(255,82,82,0.15); color: #ff6b6b; padding: 12px; border-radius: 8px; margin: 16px 0; }
-        .success { background: rgba(46,213,115,0.15); color: #2ed573; padding: 12px; border-radius: 8px; margin: 16px 0; }
+        .success { background: rgba(46,213,115,0.15); color: #2ed573; padding: 16px; border-radius: 10px; margin: 16px 0; font-size: 1.1rem; }
+        .error { background: rgba(255,82,82,0.15); color: #ff6b6b; padding: 16px; border-radius: 10px; margin: 16px 0; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔐 Google Sign-In</h1>
-        <p>Sign in to get your access token</p>
+        <p>Sign in to get your access token for R1</p>
         
         <div id="step1">
-            <div class="code-display">
-                <div class="label">Verification code from R1:</div>
-                <div class="code" id="device-code">------</div>
-            </div>
-            <button class="btn btn-primary" id="btn-signin">Sign in with Google</button>
+            <button class="btn btn-primary" id="btn-signin">🔑 Sign in with Google</button>
         </div>
         
         <div id="step2" style="display:none;">
-            <div class="spinner" id="spinner"></div>
-            <p id="status-text">Signing you in...</p>
+            <div class="spinner"></div>
+            <p>Signing you in...</p>
         </div>
         
         <div id="step3" style="display:none;">
-            <div class="success">✅ Sign-in successful!</div>
-            <div class="token-box" style="display:block;">
-                <div class="label">Copy this access token:</div>
+            <div class="success">✅ Success!</div>
+            <div class="token-box">
+                <div class="label">Copy this token and enter on R1:</div>
                 <textarea id="token-display" readonly></textarea>
             </div>
             <button class="btn btn-success" id="btn-copy">📋 Copy Token</button>
-            <p style="font-size: 0.8rem; margin-top: 12px;">Now go to your R1 and enter this token!</p>
         </div>
         
         <div id="error-box" class="error" style="display:none;"></div>
@@ -93,33 +77,28 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const clientId = params.get('client_id');
-        const deviceCode = params.get('code') || 'DEMO';
-
-        document.getElementById('device-code').textContent = deviceCode;
 
         if (!clientId) {
-            document.getElementById('error-box').textContent = 'Missing client_id in URL';
+            document.getElementById('error-box').textContent = 'Missing client_id. Open the link from your R1!';
             document.getElementById('error-box').style.display = 'block';
         }
 
         document.getElementById('btn-signin').addEventListener('click', startOAuth);
 
         function startOAuth() {
+            if (!clientId) return;
+            
             document.getElementById('step1').style.display = 'none';
             document.getElementById('step2').style.display = 'block';
-            document.getElementById('spinner').style.display = 'block';
 
-            // Build OAuth URL for implicit flow
             const baseUrl = window.location.origin + window.location.pathname;
-            const state = deviceCode; // Use device code as state
             
             const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
                 'client_id=' + encodeURIComponent(clientId) +
                 '&redirect_uri=' + encodeURIComponent(baseUrl) +
                 '&response_type=token' +
                 '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
-                '&include_granted_scopes=true' +
-                '&state=' + encodeURIComponent(state);
+                '&include_granted_scopes=true';
 
             window.location.href = authUrl;
         }
@@ -127,10 +106,9 @@
         // Check for OAuth callback
         if (window.location.hash) {
             const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
-            const state = params.get('state');
-            const error = params.get('error');
+            const urlParams = new URLSearchParams(hash);
+            const token = urlParams.get('access_token');
+            const error = urlParams.get('error');
 
             document.getElementById('step1').style.display = 'none';
             document.getElementById('step2').style.display = 'none';
@@ -145,7 +123,7 @@
                 document.getElementById('step3').style.display = 'block';
                 document.getElementById('token-display').value = token;
             } else {
-                document.getElementById('error-box').textContent = 'No token received';
+                document.getElementById('error-box').textContent = 'No token received. Try again.';
                 document.getElementById('error-box').style.display = 'block';
             }
         }
