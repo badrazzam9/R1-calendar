@@ -47,25 +47,28 @@
         .success { background: rgba(46,213,115,0.15); color: #2ed573; padding: 16px; border-radius: 10px; margin: 16px 0; font-size: 1.1rem; }
         .error { background: rgba(255,82,82,0.15); color: #ff6b6b; padding: 16px; border-radius: 10px; margin: 16px 0; }
         
-        .manual-link {
-            color: #6c63ff; text-decoration: underline; cursor: pointer;
-            font-size: 0.9rem; margin-top: 10px;
+        .info-box {
+            background: #16213e; padding: 16px; border-radius: 10px; margin: 16px 0; text-align: left;
         }
+        .info-box .label { color: #9a9abf; font-size: 0.8rem; margin-bottom: 6px; }
+        .info-box .value { color: #6c63ff; font-family: monospace; font-size: 0.75rem; word-break: break-all; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔐 Google Sign-In</h1>
-        <p>Sign in to get your access token</p>
+        
+        <div id="debug-info" class="info-box" style="display:none;">
+            <div class="label">Client ID:</div>
+            <div class="value" id="client-id-display"></div>
+        </div>
         
         <div id="step1">
-            <div class="spinner"></div>
             <p>Starting sign-in...</p>
         </div>
         
         <div id="step2" style="display:none;">
             <button class="btn btn-primary" id="btn-signin">🔑 Sign in with Google</button>
-            <p class="manual-link" id="btn-manual">Or click if nothing happened</p>
         </div>
         
         <div id="step3" style="display:none;">
@@ -83,11 +86,17 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const clientId = params.get('client_id');
+        
+        // Show debug info
+        if (clientId) {
+            document.getElementById('debug-info').style.display = 'block';
+            document.getElementById('client-id-display').textContent = clientId;
+        }
 
-        // Auto-start OAuth
-        function startOAuth() {
+        function doOAuth() {
             if (!clientId) {
-                document.getElementById('error-box').textContent = 'Missing client_id. Open the link from your R1!';
+                document.getElementById('step1').style.display = 'none';
+                document.getElementById('error-box').textContent = 'Missing client_id in URL!';
                 document.getElementById('error-box').style.display = 'block';
                 return;
             }
@@ -101,8 +110,10 @@
                 '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
                 '&include_granted_scopes=true';
 
-            // Try to redirect
-            window.location.href = authUrl;
+            console.log('Redirecting to:', authUrl);
+            
+            // Try redirect
+            window.location.replace(authUrl);
         }
 
         // Check for OAuth callback first
@@ -129,20 +140,17 @@
             }
         } else if (!clientId) {
             document.getElementById('step1').style.display = 'none';
-            document.getElementById('error-box').textContent = 'Missing client_id. Open the link from your R1!';
+            document.getElementById('error-box').textContent = 'Missing client_id! Open the link from your R1.';
             document.getElementById('error-box').style.display = 'block';
         } else {
-            // Show button to start
+            // Try immediate redirect
             document.getElementById('step1').style.display = 'none';
             document.getElementById('step2').style.display = 'block';
             
-            document.getElementById('btn-signin').addEventListener('click', startOAuth);
-            document.getElementById('btn-manual').addEventListener('click', startOAuth);
+            document.getElementById('btn-signin').addEventListener('click', doOAuth);
             
-            // Try auto-redirect after 1 second
-            setTimeout(() => {
-                startOAuth();
-            }, 1000);
+            // Try after short delay
+            setTimeout(doOAuth, 500);
         }
 
         document.getElementById('btn-copy').addEventListener('click', () => {
