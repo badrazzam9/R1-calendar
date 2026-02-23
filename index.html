@@ -99,6 +99,11 @@
         
         <button id="btn-show-auth-qr" class="btn btn-primary">📱 Show Sign-In QR</button>
         
+        <div id="auth-url-box" style="display:none;width:100%;margin:12px 0;">
+            <p style="font-size:0.75rem;color:#9a9abf;margin-bottom:6px;">Or open this URL on your phone:</p>
+            <div style="background:#16213e;padding:10px;border-radius:8px;word-break:break-all;font-size:0.7rem;color:#6c63ff;font-family:monospace;" id="auth-url-text"></div>
+        </div>
+        
         <div id="auth-qr-box" class="qr-box" style="display:none;">
             <p style="color:#333;font-size:0.8rem;margin-bottom:10px;text-align:center;">Scan with your phone</p>
             <img id="auth-qr-img" src="">
@@ -170,6 +175,7 @@
         const btnShowAuthQR = document.getElementById('btn-show-auth-qr');
         const authQRBox = document.getElementById('auth-qr-box');
         const authQRImg = document.getElementById('auth-qr-img');
+        const authURLText = document.getElementById('auth-url-text');
         const btnScanResult = document.getElementById('btn-scan-result');
         
         const btnBackWaiting = document.getElementById('btn-back-waiting');
@@ -249,12 +255,18 @@
                     
                     QRCode.toDataURL(authUrl, { width: 200, margin: 2 }, (err, url) => {
                         if (err) {
-                            showMessage(signinMessage, 'QR Error: ' + err.message, 'error');
+                            // Show URL anyway
+                            document.getElementById('auth-url-text').textContent = authUrl;
+                            document.getElementById('auth-url-box').style.display = 'block';
+                            showMessage(signinMessage, 'QR failed but URL shown below', 'error');
                             return;
                         }
                         authQRImg.src = url;
                         authQRBox.style.display = 'block';
-                        showMessage(signinMessage, 'QR shown! Scan with your phone', 'success');
+                        // Also show URL as backup
+                        document.getElementById('auth-url-text').textContent = authUrl;
+                        document.getElementById('auth-url-box').style.display = 'block';
+                        showMessage(signinMessage, 'QR shown! Scan with phone or use URL below', 'success');
                     });
                 } catch(e) {
                     showMessage(signinMessage, 'Error: ' + e.message, 'error');
