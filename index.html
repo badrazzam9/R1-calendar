@@ -211,22 +211,55 @@
 
         // Show auth QR
         btnShowAuthQR.addEventListener('click', async () => {
-            if (!clientId) { clientId = localStorage.getItem('oauth_client_id'); clientSecret = localStorage.getItem('oauth_client_secret'); }
+            if (!clientId) { 
+                clientId = localStorage.getItem('oauth_client_id'); 
+                clientSecret = localStorage.getItem('oauth_client_secret'); 
+            }
             
-            // Build auth URL with callback to our token page
-            const tokenPageUrl = window.location.origin + window.location.pathname + 'token.html';
-            const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
-                'client_id=' + encodeURIComponent(clientId) +
-                '&redirect_uri=' + encodeURIComponent(tokenPageUrl) +
-                '&response_type=code' +
-                '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
-                '&access_type=offline' +
-                '&include_granted_scopes=true' +
-                '&prompt=consent';
+            if (!clientId || !clientSecret) {
+                showMessage(signinMessage, 'No credentials saved! Go back and enter Client ID + Secret', 'error');
+                return;
+            }
             
-            QRCode.toDataURL(authUrl, { width: 200, margin: 2 }, (err, url) => {
-                authQRImg.src = url;
-                authQRBox.style.display = 'block';
+            // Check if QRCode is loaded
+            if (typeof QRCode === 'undefined') {
+                showMessage(signinMessage, 'Loading QR library...', 'success');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+                script.onload = () => generateAuthQR();
+                script.onerror = () => showMessage(signinMessage, 'Failed to load QR library', 'error');
+                document.head.appendChild(script);
+                return;
+            }
+            
+            generateAuthQR();
+            
+            function generateAuthQR() {
+                try {
+                    // Build auth URL with callback to our token page
+                    const tokenPageUrl = window.location.origin + window.location.pathname + 'token.html';
+                    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
+                        'client_id=' + encodeURIComponent(clientId) +
+                        '&redirect_uri=' + encodeURIComponent(tokenPageUrl) +
+                        '&response_type=code' +
+                        '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
+                        '&access_type=offline' +
+                        '&include_granted_scopes=true' +
+                        '&prompt=consent';
+                    
+                    QRCode.toDataURL(authUrl, { width: 200, margin: 2 }, (err, url) => {
+                        if (err) {
+                            showMessage(signinMessage, 'QR Error: ' + err.message, 'error');
+                            return;
+                        }
+                        authQRImg.src = url;
+                        authQRBox.style.display = 'block';
+                        showMessage(signinMessage, 'QR shown! Scan with your phone', 'success');
+                    });
+                } catch(e) {
+                    showMessage(signinMessage, 'Error: ' + e.message, 'error');
+                }
+            }
             });
         });
 
