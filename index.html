@@ -153,7 +153,7 @@ function msg(id, t, c) {
 // Show auth URL
 function showAuth() {
     var baseUrl = window.location.href.split('index.html')[0];
-    var tokenPage = baseUrl + 'token.html';
+    var tokenPage = baseUrl + 'token.html?cid=' + encodeURIComponent(clientId) + '&csec=' + encodeURIComponent(clientSecret);
     
     var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
         'client_id=' + encodeURIComponent(clientId) +
