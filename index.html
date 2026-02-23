@@ -70,6 +70,9 @@
         
         /* Token Display */
         .token-display { background: #16213e; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.7rem; word-break: break-all; max-height: 80px; overflow: auto; margin: 10px 0; }
+        
+        .code-box { background: #16213e; border: 2px solid #6c63ff; border-radius: 12px; padding: 20px; width: 100%; text-align: center; margin: 14px 0; }
+        .code-box img { max-width: 100%; height: auto; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -121,26 +124,22 @@
     <!-- SCREEN 2B: Other Device -->
     <div id="screen-other-device" class="screen">
         <div class="app-header">
-            <h2>📱 Sign in on phone/computer</h2>
-            <p>Follow these steps:</p>
+            <h2>📱 Sign in on phone</h2>
+            <p>Scan this QR with your phone:</p>
         </div>
         
         <div class="code-box">
-            <div style="font-size: 0.85rem; color: #9a9abf;">Your verification code:</div>
-            <div class="code" id="device-code">------</div>
-            <div style="font-size: 0.8rem; color: #9a9abf;">or scan with phone</div>
+            <img id="qr-code-img" style="width: 200px; height: 200px; display: none; border-radius: 8px;">
+            <div id="url-text" style="font-size: 0.65rem; word-break: break-all; display: none; padding: 10px; background: #1a1a2e; border-radius: 6px; margin-top: 10px;"></div>
         </div>
         
-        <button id="btn-show-url" class="btn btn-outline">🔗 Show verification URL</button>
+        <p style="font-size: 0.85rem; color: #9a9abf;">Or if QR doesn't work, tap below:</p>
         
-        <div id="verification-url" class="code-box" style="display:none;">
-            <div style="font-size: 0.75rem; color: #9a9abf;">Open this on your phone:</div>
-            <div class="url" id="verification-link"></div>
-        </div>
+        <button id="btn-show-url" class="btn btn-outline">🔗 Show URL</button>
         
         <div id="other-device-message" class="message"></div>
         
-        <button class="btn btn-secondary" id="btn-back-signin">← Back</button>
+        <button class="btn btn-secondary" id="btn-back-signin" style="margin-top: 14px;">← Back</button>
     </div>
 
     <!-- SCREEN 2C: Enter Token -->
@@ -203,9 +202,7 @@
         const btnOtherDevice = document.getElementById('btn-other-device');
         const btnEnterToken = document.getElementById('btn-enter-token');
         const btnShowUrl = document.getElementById('btn-show-url');
-        const verificationUrl = document.getElementById('verification-url');
-        const deviceCode = document.getElementById('device-code');
-        const verificationLink = document.getElementById('verification-link');
+        const verificationUrl = document.getElementById('url-text');
         const otherDeviceMessage = document.getElementById('other-device-message');
         
         const tokenInput = document.getElementById('token-input');
@@ -249,23 +246,56 @@
                 return;
             }
             
-            // Generate device code
-            const deviceCodeValue = Math.random().toString(36).substring(2, 8).toUpperCase();
-            deviceCode.textContent = deviceCodeValue;
-            localStorage.setItem('device_code', deviceCodeValue);
-            
             // Build verification URL
             const baseUrl = window.location.origin + '/R1-calendar/auth-device/';
-            const verificationUrlValue = baseUrl + '?client_id=' + encodeURIComponent(clientId) + '&code=' + encodeURIComponent(deviceCodeValue);
-            verificationLink.textContent = verificationUrlValue;
+            const verificationUrlValue = baseUrl + '?client_id=' + encodeURIComponent(clientId);
+            
+            // Generate QR code
+            if (typeof QRCode === 'undefined') {
+                // Load QR library
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+                script.onload = () => showQRCode(verificationUrlValue);
+                script.onerror = () => {
+                    // Fallback: show URL
+                    showUrlOnly(verificationUrlValue);
+                };
+                document.head.appendChild(script);
+            } else {
+                showQRCode(verificationUrlValue);
+            }
+            
+            function showQRCode(url) {
+                try {
+                    QRCode.toDataURL(url, { width: 250, margin: 2 }, (err, dataUrl) => {
+                        if (err) {
+                            showUrlOnly(url);
+                            return;
+                        }
+                        document.getElementById('qr-code-img').src = dataUrl;
+                        document.getElementById('qr-code-img').style.display = 'block';
+                        document.getElementById('url-text').style.display = 'none';
+                    });
+                } catch(e) {
+                    showUrlOnly(url);
+                }
+            }
+            
+            function showUrlOnly(url) {
+                document.getElementById('qr-code-img').style.display = 'none';
+                document.getElementById('url-text').textContent = url;
+                document.getElementById('url-text').style.display = 'block';
+            }
             
             showScreen(screenOtherDevice);
             hideMessage(otherDeviceMessage);
-            verificationUrl.style.display = 'none';
         });
 
         btnShowUrl.addEventListener('click', () => {
-            verificationUrl.style.display = 'block';
+            const url = document.getElementById('url-text').textContent;
+            if (url) {
+                document.getElementById('url-text').style.display = 'block';
+            }
         });
 
         btnBackSignin.addEventListener('click', () => showScreen(screenSignin));
