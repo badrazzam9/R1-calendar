@@ -43,7 +43,6 @@ if (error) {
     document.getElementById('token-display').textContent = code;
     document.getElementById('success').style.display = 'block';
     
-    // Try exchange
     if (clientId && clientSecret) {
         exchangeCode(code, clientId, clientSecret);
     }

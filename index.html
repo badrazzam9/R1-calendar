@@ -146,12 +146,12 @@ function msg(id, t, c) {
 
 // Show Auth URL
 function showAuthUrl() {
-    var baseUrl = window.location.href.split('index.html')[0];
-    var tokenPage = baseUrl + 'token.html?cid=' + encodeURIComponent(clientId) + '&csec=' + encodeURIComponent(clientSecret);
+    // Hardcode exact redirect URI to avoid mismatch
+    var redirectUri = 'https://badrazzam9.github.io/R1-calendar/token.html';
     
     var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
         'client_id=' + encodeURIComponent(clientId) +
-        '&redirect_uri=' + encodeURIComponent(tokenPage) +
+        '&redirect_uri=' + encodeURIComponent(redirectUri) +
         '&response_type=code' +
         '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
         '&access_type=offline&prompt=consent';
