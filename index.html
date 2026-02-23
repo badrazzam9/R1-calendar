@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Calendar</title>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; padding: 20px; }
+        body { font-family: sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; padding: 20px; }
         h1 { font-size: 1.4rem; text-align: center; margin-bottom: 10px; }
         h2 { font-size: 1.2rem; margin-bottom: 8px; }
         p { color: #9a9a9a; font-size: 0.9rem; text-align: center; margin-bottom: 16px; }
@@ -18,12 +18,10 @@
         button:active { transform: scale(0.98); }
         .btn-sec { background: transparent; border: 1px solid #444; color: #999; }
         .btn-small { width: auto; padding: 12px 14px; }
-        .btn-toggle { background: #444; }
-        .msg { padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; display: none; }
-        .err { background: rgba(255,0,0,0.2); color: #ff6b6b; display: block; }
-        .ok { background: rgba(0,255,0,0.2); color: #6bff6b; display: block; }
-        .url-box { background: #0f0f23; padding: 10px; border-radius: 8px; word-break: break-all; font-size: 0.7rem; color: #6c63ff; margin: 10px 0; display: none; }
-        .visible { display: block; }
+        .msg { padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; }
+        .err { background: rgba(255,0,0,0.2); color: #ff6b6b; }
+        .ok { background: rgba(0,255,0,0.2); color: #6bff6b; }
+        .url-box { background: #0f0f23; padding: 10px; border-radius: 8px; word-break: break-all; font-size: 0.7rem; color: #6c63ff; margin: 10px 0; }
         .step { background: #16213e; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; }
         .event { background: #16213e; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #6c63ff; }
         .event-time { color: #6c63ff; font-size: 0.75rem; font-weight: bold; }
@@ -35,11 +33,10 @@
 </head>
 <body>
 
-<!-- SETUP SCREEN -->
+<!-- SETUP -->
 <div id="setup">
     <h1>📅 Google Calendar</h1>
     <p>Enter OAuth credentials</p>
-    
     <div class="box">
         <div class="row">
             <input type="text" id="cid" placeholder="Client ID">
@@ -63,44 +60,34 @@
     <button class="btn-sec" onclick="stopScan()">Close</button>
 </div>
 
-<!-- SIGN IN SCREEN -->
+<!-- SIGN IN -->
 <div id="signin" style="display:none;">
     <h2>🔐 Sign in with phone</h2>
     
-    <!-- Auth URL Section -->
-    <button class="btn-toggle" onclick="toggleAuthUrl()">📱 Show Auth URL</button>
-    <div id="auth-area" class="box" style="display:none;">
-        <p style="margin-bottom:8px;">Copy to phone browser:</p>
+    <div class="box">
+        <p style="margin-bottom:8px;">1. Copy this URL to your PHONE browser:</p>
         <div id="auth-url" class="url-box"></div>
     </div>
     
-    <div id="signin-msg" class="msg"></div>
+    <div class="step">2. Sign in on your PHONE</div>
+    <div class="step">3. Your PHONE shows a token</div>
+    <div class="step">4. Convert that token to QR</div>
+    <div class="step">5. R1 scans that QR below 👇</div>
     
-    <div class="step">1. Show Auth URL → open on phone</div>
-    <div class="step">2. Sign in on phone</div>
-    <div class="step">3. Phone shows token</div>
-    <div class="step">4. Convert token to QR → scan with R1</div>
+    <button onclick="startTokenScan()">📷 Scan Token from Phone</button>
     
-    <!-- Token Input Section -->
-    <button class="btn-toggle" onclick="toggleToken()">📷 Scan Token QR</button>
-    <div id="token-area" class="box" style="display:none;">
-        <p style="margin-bottom:8px;">Or enter token manually:</p>
-        <input type="text" id="token-input" placeholder="Paste token here">
-        <button onclick="submitToken()">Use Token</button>
-    </div>
-    
-    <button class="btn-sec" onclick="resetCreds()">Change Credentials</button>
+    <button class="btn-sec" onclick="resetCreds()" style="margin-top:20px;">Change Credentials</button>
 </div>
 
 <!-- TOKEN SCAN -->
 <div id="scan-token" style="display:none;">
-    <h2>📷 Scan Token</h2>
+    <h2>📷 Scan Token QR</h2>
     <p>Point at token QR from phone</p>
     <video id="token-video" playsinline autoplay></video>
     <button class="btn-sec" onclick="stopTokenScan()">Close</button>
 </div>
 
-<!-- CALENDAR SCREEN -->
+<!-- CALENDAR -->
 <div id="calendar" style="display:none;">
     <h2>📅 Today</h2>
     <button class="btn-sec" onclick="fetchEvents()" style="width:auto;float:right;padding:8px 12px;">🔄</button>
@@ -127,56 +114,37 @@ function init() {
 }
 
 function showSetup() {
+    hideAll();
     document.getElementById('setup').style.display = 'block';
-    document.getElementById('signin').style.display = 'none';
-    document.getElementById('calendar').style.display = 'none';
-    document.getElementById('scan-qr').style.display = 'none';
-    document.getElementById('scan-token').style.display = 'none';
 }
 
 function showSignin() {
-    document.getElementById('setup').style.display = 'none';
+    hideAll();
     document.getElementById('signin').style.display = 'block';
-    document.getElementById('calendar').style.display = 'none';
-    document.getElementById('scan-qr').style.display = 'none';
-    document.getElementById('scan-token').style.display = 'none';
+    showAuthUrl();
 }
 
 function showCal() {
-    document.getElementById('setup').style.display = 'none';
-    document.getElementById('signin').style.display = 'none';
+    hideAll();
     document.getElementById('calendar').style.display = 'block';
-    document.getElementById('scan-qr').style.display = 'none';
-    document.getElementById('scan-token').style.display = 'none';
     fetchEvents();
 }
 
-// Toggle functions
-function toggleAuthUrl() {
-    var area = document.getElementById('auth-area');
-    var btn = event.target;
-    if (area.style.display === 'none') {
-        area.style.display = 'block';
-        btn.textContent = '🔐 Hide Auth URL';
-        showAuthUrl();
-    } else {
-        area.style.display = 'none';
-        btn.textContent = '📱 Show Auth URL';
-    }
+function hideAll() {
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('scan-qr').style.display = 'none';
+    document.getElementById('signin').style.display = 'none';
+    document.getElementById('scan-token').style.display = 'none';
+    document.getElementById('calendar').style.display = 'none';
 }
 
-function toggleToken() {
-    var area = document.getElementById('token-area');
-    var btn = event.target;
-    if (area.style.display === 'none') {
-        area.style.display = 'block';
-        btn.textContent = '⌨️ Hide Token Input';
-    } else {
-        area.style.display = 'none';
-        btn.textContent = '📷 Scan Token QR';
-    }
+function msg(id, t, c) {
+    var el = document.getElementById(id);
+    el.textContent = t;
+    el.className = 'msg ' + c;
 }
 
+// Show Auth URL
 function showAuthUrl() {
     var baseUrl = window.location.href.split('index.html')[0];
     var tokenPage = baseUrl + 'token.html?cid=' + encodeURIComponent(clientId) + '&csec=' + encodeURIComponent(clientSecret);
@@ -189,13 +157,6 @@ function showAuthUrl() {
         '&access_type=offline&prompt=consent';
     
     document.getElementById('auth-url').textContent = authUrl;
-    msg('signin-msg', 'URL shown! Copy to phone', 'ok');
-}
-
-function msg(id, t, c) {
-    var el = document.getElementById(id);
-    el.textContent = t;
-    el.className = 'msg ' + c;
 }
 
 // Save credentials
@@ -214,13 +175,13 @@ function saveCreds() {
     setTimeout(showSignin, 500);
 }
 
-// QR Scanning
+// QR Scanning - Client ID/Secret
 var scanTarget = '';
 var scanStream = null;
 
 function startScan(target) {
     scanTarget = target;
-    document.getElementById('setup').style.display = 'none';
+    hideAll();
     document.getElementById('scan-qr').style.display = 'block';
     
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
@@ -240,8 +201,7 @@ function stopScan() {
         scanStream.getTracks().forEach(function(t) { t.stop(); });
         scanStream = null;
     }
-    document.getElementById('scan-qr').style.display = 'none';
-    document.getElementById('setup').style.display = 'block';
+    showSetup();
 }
 
 function scanLoop() {
@@ -260,8 +220,7 @@ function scanLoop() {
     
     var code = jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
     if (code) {
-        var data = code.data.trim();
-        document.getElementById(scanTarget).value = data;
+        document.getElementById(scanTarget).value = code.data.trim();
         stopScan();
         msg('setup-msg', 'Scanned!', 'ok');
         return;
@@ -270,11 +229,11 @@ function scanLoop() {
     requestAnimationFrame(scanLoop);
 }
 
-// Token scanning
+// Token QR Scanning
 var tokenStream = null;
 
 function startTokenScan() {
-    document.getElementById('signin').style.display = 'none';
+    hideAll();
     document.getElementById('scan-token').style.display = 'block';
     
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
@@ -294,8 +253,7 @@ function stopTokenScan() {
         tokenStream.getTracks().forEach(function(t) { t.stop(); });
         tokenStream = null;
     }
-    document.getElementById('scan-token').style.display = 'none';
-    document.getElementById('signin').style.display = 'block';
+    showSignin();
 }
 
 function tokenScanLoop() {
@@ -314,8 +272,7 @@ function tokenScanLoop() {
     
     var code = jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
     if (code) {
-        var data = code.data.trim();
-        submitTokenValue(data);
+        submitTokenValue(code.data.trim());
         stopTokenScan();
         return;
     }
@@ -323,31 +280,8 @@ function tokenScanLoop() {
     requestAnimationFrame(tokenScanLoop);
 }
 
-// Override toggle to add scan option
-function toggleToken() {
-    var area = document.getElementById('token-area');
-    var btn = event.target;
-    if (area.style.display === 'none') {
-        area.style.display = 'block';
-        btn.textContent = '⌨️ Hide Token Input';
-    } else {
-        area.style.display = 'none';
-        btn.textContent = '📷 Scan Token QR';
-        // Also add scan button option
-    }
-}
-
-// Submit token
-function submitToken() {
-    var token = document.getElementById('token-input').value.trim();
-    submitTokenValue(token);
-}
-
 function submitTokenValue(token) {
-    if (!token) {
-        msg('signin-msg', 'Enter token', 'err');
-        return;
-    }
+    if (!token) return;
     
     // Try parse JSON
     try {
@@ -410,10 +344,7 @@ function refresh() {
     return fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'client_id=' + encodeURIComponent(clientId) + 
-              '&client_secret=' + encodeURIComponent(clientSecret) + 
-              '&refresh_token=' + encodeURIComponent(refreshToken) + 
-              '&grant_type=refresh_token'
+        body: 'client_id=' + encodeURIComponent(clientId) + '&client_secret=' + encodeURIComponent(clientSecret) + '&refresh_token=' + encodeURIComponent(refreshToken) + '&grant_type=refresh_token'
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
