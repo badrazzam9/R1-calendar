@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Google Calendar</title>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #1a1a2e; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -13,24 +14,28 @@
         .app-header { text-align: center; margin-bottom: 24px; margin-top: 16px; }
         .app-header h1, .app-header h2 { font-size: 1.6rem; font-weight: 700; color: #fff; }
         .app-header p { font-size: 0.9rem; color: #9a9abf; margin-top: 6px; }
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; width: 100%; margin-bottom: 10px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; margin-bottom: 12px; }
         .btn:active { transform: scale(0.98); }
         .btn-primary { background: linear-gradient(135deg, #6c63ff, #4a42d1); color: #fff; }
         .btn-secondary { background: transparent; color: #9a9abf; border: 1px solid #3a3a5c; }
-        .btn-outline { background: transparent; color: #6c63ff; border: 1px solid #6c63ff; }
+        .btn-success { background: #2ed573; color: #fff; }
         .input-group { display: flex; width: 100%; gap: 10px; margin-top: 14px; }
-        .input-group input { flex: 1; padding: 12px 14px; border: 1px solid #3a3a5c; border-radius: 8px; background: #16213e; color: #e0e0e0; font-size: 0.9rem; }
+        .input-group input { flex: 1; padding: 12px 14px; border: 1px solid #3a3a5c; border-radius: 10px; background: #16213e; color: #e0e0e0; font-size: 0.9rem; }
         .input-group input:focus { border-color: #6c63ff; }
-        .input-group button { padding: 12px 16px; border: none; border-radius: 8px; background: #6c63ff; color: #fff; font-weight: 600; cursor: pointer; }
-        .message { padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-top: 14px; width: 100%; text-align: center; display: none; }
+        .input-group button { padding: 12px 18px; border: none; border-radius: 10px; background: #6c63ff; color: #fff; font-weight: 600; cursor: pointer; }
+        .message { padding: 14px; border-radius: 10px; font-size: 0.9rem; margin-top: 14px; width: 100%; text-align: center; }
         .message.error { background: rgba(255,82,82,0.15); color: #ff6b6b; }
         .message.success { background: rgba(46,213,115,0.15); color: #2ed573; }
         .message.visible { display: block; }
-        .divider { display: flex; align-items: center; width: 100%; margin: 16px 0; color: #6a6a8a; font-size: 0.8rem; }
-        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #2a2a4a; }
-        .reset-link { margin-top: 20px; font-size: 0.8rem; color: #6a6a8a; cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; }
+        .message { display: none; }
         
-        /* QR Scanner */
+        /* Device Code Display */
+        .device-code-box { background: #16213e; border: 3px solid #6c63ff; border-radius: 16px; padding: 30px; width: 100%; text-align: center; margin: 20px 0; }
+        .device-code-box .label { font-size: 1rem; color: #9a9abf; margin-bottom: 10px; }
+        .device-code-box .code { font-size: 3rem; font-weight: 700; color: #6c63ff; letter-spacing: 8px; margin: 15px 0; font-family: monospace; }
+        .device-code-box .url { font-size: 0.85rem; color: #9a9abf; margin-top: 15px; padding: 10px; background: #1a1a2e; border-radius: 8px; word-break: break-all; }
+        
+        /* QR */
         #qr-scanner-container { width: 100%; max-width: 300px; margin: 14px auto; border-radius: 12px; overflow: hidden; background: #16213e; border: 2px solid #2a2a4a; display: none; }
         #qr-video { width: 100%; display: block; }
         #qr-canvas { display: none; }
@@ -38,21 +43,17 @@
         .scan-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; border: 3px solid #6c63ff; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
         .scan-line { position: absolute; top: 50%; left: 10%; width: 80%; height: 3px; background: #6c63ff; animation: scan 2s linear infinite; }
         @keyframes scan { 0% { top: 10%; } 50% { top: 90%; } 100% { top: 10%; } }
-        .scan-status { text-align: center; font-size: 0.8rem; color: #9a9abf; margin-top: 8px; }
+        .scan-status { text-align: center; font-size: 0.85rem; color: #9a9abf; margin-top: 10px; }
         
-        /* Code Display */
-        .code-box { background: #16213e; border: 2px solid #6c63ff; border-radius: 12px; padding: 20px; width: 100%; text-align: center; margin: 14px 0; }
-        .code-box .code { font-size: 2rem; font-weight: 700; color: #6c63ff; letter-spacing: 4px; margin: 10px 0; }
-        .code-box .url { font-size: 0.75rem; color: #9a9abf; word-break: break-all; background: #1a1a2e; padding: 10px; border-radius: 6px; margin-top: 10px; }
-        
-        /* Loading */
-        .spinner { width: 36px; height: 36px; border: 3px solid #2a2a4a; border-top-color: #6c63ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 30px auto; }
+        /* Status */
+        .status-box { background: #16213e; border-radius: 12px; padding: 20px; width: 100%; margin: 15px 0; text-align: center; }
+        .status-box .spinner { width: 40px; height: 40px; border: 3px solid #2a2a4a; border-top-color: #6c63ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 15px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
         /* Calendar */
         .calendar-header { text-align: center; margin-bottom: 20px; width: 100%; }
         .calendar-header h2 { font-size: 1.3rem; color: #fff; }
-        .calendar-header .date-label { font-size: 0.85rem; color: #9a9abf; margin-top: 4px; }
+        .calendar-header .date-label { font-size: 0.9rem; color: #9a9abf; margin-top: 4px; }
         .timeline { width: 100%; position: relative; padding-left: 24px; }
         .timeline::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, #6c63ff, #3a3a5c); }
         .timeline-event { position: relative; margin-bottom: 16px; padding: 14px 16px; background: #16213e; border-radius: 10px; border: 1px solid #2a2a4a; }
@@ -64,99 +65,59 @@
         .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.7; }
         .empty-state h3 { font-size: 1.1rem; color: #fff; margin-bottom: 6px; }
         .empty-state p { color: #7a7a9a; font-size: 0.9rem; }
-        .calendar-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px; }
+        .calendar-toolbar { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 10px; }
         .calendar-toolbar .user-info { font-size: 0.8rem; color: #7a7a9a; }
         .btn-signout { background: transparent; border: 1px solid #3a3a5c; color: #9a9abf; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
-        
-        /* Token Display */
-        .token-display { background: #16213e; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.7rem; word-break: break-all; max-height: 80px; overflow: auto; margin: 10px 0; }
-        
-        .code-box { background: #16213e; border: 2px solid #6c63ff; border-radius: 12px; padding: 20px; width: 100%; text-align: center; margin: 14px 0; }
-        .code-box img { max-width: 100%; height: auto; border-radius: 8px; }
+        .reset-link { margin-top: 20px; font-size: 0.8rem; color: #6a6a8a; cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; }
     </style>
 </head>
 <body>
 
     <!-- SCREEN 1: Setup -->
     <div id="screen-setup" class="screen">
-        <div class="app-header">
-            <h1>📅 Google Calendar</h1>
-            <p>Enter your Client ID to get started</p>
-        </div>
-
+        <div class="app-header"><h1>📅 Google Calendar</h1><p>Enter your Client ID</p></div>
         <button id="btn-scan" class="btn btn-primary">📷 Scan Client ID QR</button>
-
         <div id="qr-scanner-container">
             <div class="scan-overlay">
-                <video id="qr-video" playsinline autoplay muted></video>
-                <canvas id="qr-canvas"></canvas>
+                <video id="qr-video" playsinline autoplay muted></video><canvas id="qr-canvas"></canvas>
                 <div class="scan-frame"><div class="scan-line"></div></div>
             </div>
-        </div>
-        <div id="scan-status" class="scan-status" style="display:none;">Point camera at QR</div>
-
+        </div><div id="scan-status" class="scan-status" style="display:none;">Point camera at QR</div>
         <div id="setup-message" class="message"></div>
-
-        <div class="divider">or enter manually</div>
+        <div style="width:100%;text-align:center;color:#6a6a8a;margin:16px 0;font-size:0.85rem;">or enter manually</div>
         <div class="input-group">
-            <input type="text" id="manual-client-id" placeholder="Paste your Client ID here">
+            <input type="text" id="manual-client-id" placeholder="Paste Client ID here">
             <button id="btn-manual-save">Save</button>
         </div>
     </div>
 
-    <!-- SCREEN 2: Sign In Options -->
+    <!-- SCREEN 2: Sign In - Device Flow -->
     <div id="screen-signin" class="screen">
-        <div class="app-header">
-            <h2>📅 Google Calendar</h2>
-            <p>Sign in to view your events</p>
-        </div>
-        
-        <button id="btn-other-device" class="btn btn-primary">📱 Sign in on other device</button>
-        
-        <div class="divider">or</div>
-        
-        <button id="btn-enter-token" class="btn btn-secondary">⌨️ Enter access token manually</button>
-        
+        <div class="app-header"><h2>📅 Google Calendar</h2><p>Sign in to view your events</p></div>
+        <button id="btn-device-flow" class="btn btn-primary">🔐 Sign in with Google</button>
         <div id="signin-message" class="message"></div>
         <button class="reset-link" id="btn-reset-signin">Reset Client ID</button>
     </div>
 
-    <!-- SCREEN 2B: Other Device -->
-    <div id="screen-other-device" class="screen">
-        <div class="app-header">
-            <h2>📱 Sign in on phone</h2>
-            <p>Scan this QR with your phone:</p>
+    <!-- SCREEN 2B: Device Code -->
+    <div id="screen-device-code" class="screen">
+        <div class="app-header"><h2>🔐 Sign in on another device</h2><p>Follow the steps below:</p></div>
+        
+        <div class="device-code-box" id="device-code-box" style="display:none;">
+            <div class="label">Enter this code on your phone:</div>
+            <div class="code" id="display-code">----</div>
+            <div class="label">Then open:</div>
+            <div class="url" id="verification-url">...</div>
         </div>
         
-        <div class="code-box">
-            <img id="qr-code-img" style="width: 200px; height: 200px; display: none; border-radius: 8px;">
-            <div id="url-text" style="font-size: 0.65rem; word-break: break-all; display: none; padding: 10px; background: #1a1a2e; border-radius: 6px; margin-top: 10px;"></div>
+        <div class="status-box" id="device-loading">
+            <div class="spinner"></div>
+            <p>Getting code from Google...</p>
         </div>
         
-        <p style="font-size: 0.85rem; color: #9a9abf;">Or if QR doesn't work, tap below:</p>
+        <div id="device-status" class="message"></div>
         
-        <button id="btn-show-url" class="btn btn-outline">🔗 Show URL</button>
-        
-        <div id="other-device-message" class="message"></div>
-        
-        <button class="btn btn-secondary" id="btn-back-signin" style="margin-top: 14px;">← Back</button>
-    </div>
-
-    <!-- SCREEN 2C: Enter Token -->
-    <div id="screen-enter-token" class="screen">
-        <div class="app-header">
-            <h2>⌨️ Enter Access Token</h2>
-            <p>Paste the token from your phone</p>
-        </div>
-        
-        <div class="input-group" style="flex-direction: column; gap: 12px;">
-            <input type="text" id="token-input" placeholder="Paste access_token here" style="width: 100%;">
-            <button id="btn-save-token" class="btn btn-primary">Use this token</button>
-        </div>
-        
-        <div id="token-message" class="message"></div>
-        
-        <button class="btn btn-secondary" id="btn-back-signin2" style="margin-top: 14px;">← Back</button>
+        <button class="btn btn-secondary" id="btn-back-to-signin" style="margin-top:14px;">← Back</button>
     </div>
 
     <!-- SCREEN 3: Calendar -->
@@ -166,27 +127,19 @@
             <span class="user-info" id="user-email"></span>
             <button class="btn-signout" id="btn-signout">Sign Out</button>
         </div>
-        <div class="calendar-header">
-            <h2>Today's Schedule</h2>
-            <div class="date-label" id="today-date-label"></div>
-        </div>
-        <div id="calendar-loading" style="display:none;"><div class="spinner"></div></div>
+        <div class="calendar-header"><h2>Today's Schedule</h2><div class="date-label" id="today-date-label"></div></div>
+        <div id="calendar-loading" style="display:none;"><div class="spinner" style="margin:40px auto;"></div></div>
         <div id="calendar-events" class="timeline" style="display:none;"></div>
-        <div id="calendar-empty" class="empty-state" style="display:none;">
-            <div class="empty-icon">🌤️</div>
-            <h3>No events today</h3>
-            <p>Enjoy your free day!</p>
-        </div>
-        <div id="calendar-error" class="message error" style="display:none;"></div>
+        <div id="calendar-empty" class="empty-state" style="display:none;"><div class="empty-icon">🌤️</div><h3>No events today</h3><p>Enjoy your free day!</p></div>
+        <div id="calendar-error" class="message error" visible></div>
         <button class="reset-link" id="btn-reset-calendar">Reset & Sign Out</button>
     </div>
 
     <script>
-        // DOM Elements
+        // DOM
         const screenSetup = document.getElementById('screen-setup');
         const screenSignin = document.getElementById('screen-signin');
-        const screenOtherDevice = document.getElementById('screen-other-device');
-        const screenEnterToken = document.getElementById('screen-enter-token');
+        const screenDeviceCode = document.getElementById('screen-device-code');
         const screenCalendar = document.getElementById('screen-calendar');
         
         const btnScan = document.getElementById('btn-scan');
@@ -199,19 +152,16 @@
         const btnManualSave = document.getElementById('btn-manual-save');
         const setupMessage = document.getElementById('setup-message');
         
-        const btnOtherDevice = document.getElementById('btn-other-device');
-        const btnEnterToken = document.getElementById('btn-enter-token');
-        const btnShowUrl = document.getElementById('btn-show-url');
-        const verificationUrl = document.getElementById('url-text');
-        const otherDeviceMessage = document.getElementById('other-device-message');
+        const btnDeviceFlow = document.getElementById('btn-device-flow');
+        const signinMessage = document.getElementById('signin-message');
         
-        const tokenInput = document.getElementById('token-input');
-        const btnSaveToken = document.getElementById('btn-save-token');
-        const tokenMessage = document.getElementById('token-message');
+        const deviceCodeBox = document.getElementById('device-code-box');
+        const displayCode = document.getElementById('display-code');
+        const verificationUrl = document.getElementById('verification-url');
+        const deviceLoading = document.getElementById('device-loading');
+        const deviceStatus = document.getElementById('device-status');
         
-        const btnBackSignin = document.getElementById('btn-back-signin');
-        const btnBackSignin2 = document.getElementById('btn-back-signin2');
-        
+        const btnBackToSignin = document.getElementById('btn-back-to-signin');
         const btnResetSignin = document.getElementById('btn-reset-signin');
         
         const calendarLoading = document.getElementById('calendar-loading');
@@ -219,105 +169,109 @@
         const calendarEmpty = document.getElementById('calendar-empty');
         const calendarError = document.getElementById('calendar-error');
         const todayDateLabel = document.getElementById('today-date-label');
-        const userEmailEl = document.getElementById('user-email');
         const btnSignout = document.getElementById('btn-signout');
         const btnResetCalendar = document.getElementById('btn-reset-calendar');
 
         let accessToken = null;
+        let deviceCode = null;
+        let deviceInterval = null;
         let scannerActive = false;
-        let scanInterval = null;
 
-        function showMessage(el, text, type) {
-            el.textContent = text;
-            el.className = 'message ' + type + ' visible';
-        }
-        function hideMessage(el) { el.className = 'message'; }
+        function showMessage(el, text, type) { el.textContent = text; el.className = 'message ' + type + ' visible'; }
+        function hideMessage(el) { el.className = 'message'; el.style.display = 'none'; }
+        function showScreen(s) { [screenSetup, screenSignin, screenDeviceCode, screenCalendar].forEach(x => x.classList.remove('active')); s.classList.add('active'); }
 
-        function showScreen(screen) {
-            [screenSetup, screenSignin, screenOtherDevice, screenEnterToken, screenCalendar].forEach(s => s.classList.remove('active'));
-            screen.classList.add('active');
-        }
+        // ========== DEVICE FLOW ==========
+        btnDeviceFlow.addEventListener('click', startDeviceFlow);
 
-        // ========== Other Device Sign In ==========
-        btnOtherDevice.addEventListener('click', () => {
+        async function startDeviceFlow() {
             const clientId = localStorage.getItem('google_client_id');
-            if (!clientId) {
-                showMessage(otherDeviceMessage, 'No Client ID found', 'error');
-                return;
+            if (!clientId) { showMessage(signinMessage, 'No Client ID found', 'error'); return; }
+            
+            showScreen(screenDeviceCode);
+            hideMessage(deviceStatus);
+            deviceLoading.style.display = 'block';
+            deviceCodeBox.style.display = 'none';
+            
+            try {
+                // Step 1: Request device code
+                const resp = await fetch('https://oauth2.googleapis.com/device/code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        scope: 'https://www.googleapis.com/auth/calendar.readonly'
+                    })
+                });
+                
+                if (!resp.ok) throw new Error('Failed to get device code');
+                
+                const data = await resp.json();
+                deviceCode = data.device_code;
+                const userCode = data.user_code;
+                const verificationUri = data.verification_url;
+                
+                // Display code and URL
+                displayCode.textContent = userCode;
+                verificationUrl.textContent = verificationUri;
+                
+                deviceLoading.style.display = 'none';
+                deviceCodeBox.style.display = 'block';
+                
+                showMessage(deviceStatus, 'Now go to the URL above and enter the code! Polling for token...', 'success');
+                
+                // Start polling
+                deviceInterval = setInterval(() => pollForToken(clientId), data.interval * 1000 || 5000);
+                
+            } catch(err) {
+                deviceLoading.style.display = 'none';
+                showMessage(deviceStatus, 'Error: ' + err.message, 'error');
             }
+        }
+
+        async function pollForToken(clientId) {
+            if (!deviceCode) return;
             
-            // Build verification URL
-            const baseUrl = window.location.origin + '/R1-calendar/auth-device/';
-            const verificationUrlValue = baseUrl + '?client_id=' + encodeURIComponent(clientId);
-            
-            // Generate QR code
-            if (typeof QRCode === 'undefined') {
-                // Load QR library
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-                script.onload = () => showQRCode(verificationUrlValue);
-                script.onerror = () => {
-                    // Fallback: show URL
-                    showUrlOnly(verificationUrlValue);
-                };
-                document.head.appendChild(script);
-            } else {
-                showQRCode(verificationUrlValue);
-            }
-            
-            function showQRCode(url) {
-                try {
-                    QRCode.toDataURL(url, { width: 250, margin: 2 }, (err, dataUrl) => {
-                        if (err) {
-                            showUrlOnly(url);
-                            return;
-                        }
-                        document.getElementById('qr-code-img').src = dataUrl;
-                        document.getElementById('qr-code-img').style.display = 'block';
-                        document.getElementById('url-text').style.display = 'none';
-                    });
-                } catch(e) {
-                    showUrlOnly(url);
+            try {
+                const resp = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        client_secret: '', // Not needed for device flow
+                        device_code: deviceCode,
+                        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+                    })
+                });
+                
+                const data = await resp.json();
+                
+                if (data.access_token) {
+                    clearInterval(deviceInterval);
+                    accessToken = data.access_token;
+                    localStorage.setItem('oauth_access_token', accessToken);
+                    localStorage.setItem('oauth_token_time', Date.now().toString());
+                    showScreen(screenCalendar);
+                    fetchEvents();
+                } else if (data.error === 'authorization_pending') {
+                    // Still waiting
+                    console.log('Waiting for user to authorize...');
+                } else if (data.error === 'slow_down') {
+                    // Poll slower
+                    console.log('Slow down polling');
+                } else {
+                    clearInterval(deviceInterval);
+                    showMessage(deviceStatus, 'Error: ' + (data.error_description || data.error), 'error');
                 }
+            } catch(err) {
+                console.error('Poll error:', err);
             }
-            
-            function showUrlOnly(url) {
-                document.getElementById('qr-code-img').style.display = 'none';
-                document.getElementById('url-text').textContent = url;
-                document.getElementById('url-text').style.display = 'block';
-            }
-            
-            showScreen(screenOtherDevice);
-            hideMessage(otherDeviceMessage);
-        });
+        }
 
-        btnShowUrl.addEventListener('click', () => {
-            const url = document.getElementById('url-text').textContent;
-            if (url) {
-                document.getElementById('url-text').style.display = 'block';
-            }
-        });
-
-        btnBackSignin.addEventListener('click', () => showScreen(screenSignin));
-        btnBackSignin2.addEventListener('click', () => showScreen(screenSignin));
-
-        // ========== Enter Token ==========
-        btnEnterToken.addEventListener('click', () => {
-            showScreen(screenEnterToken);
-            hideMessage(tokenMessage);
-        });
-
-        btnSaveToken.addEventListener('click', () => {
-            const token = tokenInput.value.trim();
-            if (!token) {
-                showMessage(tokenMessage, 'Please enter a token', 'error');
-                return;
-            }
-            accessToken = token;
-            localStorage.setItem('oauth_access_token', token);
-            localStorage.setItem('oauth_token_time', Date.now().toString());
-            showScreen(screenCalendar);
-            fetchEvents();
+        btnBackToSignin.addEventListener('click', () => {
+            if (deviceInterval) clearInterval(deviceInterval);
+            deviceCode = null;
+            showScreen(screenSignin);
         });
 
         // ========== QR Scanner ==========
@@ -325,11 +279,11 @@
             if (scannerActive) { stopScanner(); return; }
             if (typeof jsQR === 'undefined') {
                 showMessage(setupMessage, 'Loading QR library...', 'error');
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
-                script.onload = () => startScanner();
-                script.onerror = () => showMessage(setupMessage, 'Failed to load QR library', 'error');
-                document.head.appendChild(script);
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+                s.onload = () => startScanner();
+                s.onerror = () => showMessage(setupMessage, 'Failed to load QR', 'error');
+                document.head.appendChild(s);
                 return;
             }
             startScanner();
@@ -338,119 +292,88 @@
         async function startScanner() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                video.srcObject = stream;
-                video.setAttribute('playsinline', 'true');
-                await video.play();
-                qrContainer.style.display = 'block';
-                scanStatus.style.display = 'block';
-                btnScan.textContent = '⏹️ Stop';
+                video.srcObject = stream; video.play();
+                qrContainer.style.display = 'block'; scanStatus.style.display = 'block'; btnScan.textContent = '⏹️ Stop';
                 scannerActive = true;
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                scanInterval = setInterval(scanFrame, 200);
-            } catch (err) {
-                showMessage(setupMessage, 'Camera access denied', 'error');
-            }
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                const scanLoop = () => {
+                    if (!scannerActive || video.readyState !== 4) return;
+                    ctx.drawImage(video, 0, 0);
+                    const code = jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
+                    if (code) { stopScanner(); const id = code.data.trim(); if(id){localStorage.setItem('google_client_id',id); showMessage(setupMessage,'Client ID captured!','success'); setTimeout(()=>showScreen(screenSignin),1000);} }
+                    requestAnimationFrame(scanLoop);
+                };
+                video.onloadedmetadata = () => requestAnimationFrame(scanLoop);
+            } catch(e) { showMessage(setupMessage, 'Camera error', 'error'); }
         }
 
         function stopScanner() {
             scannerActive = false;
-            if (scanInterval) clearInterval(scanInterval);
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-            }
-            qrContainer.style.display = 'none';
-            scanStatus.style.display = 'none';
-            btnScan.textContent = '📷 Scan Client ID QR';
-        }
-
-        function scanFrame() {
-            if (!scannerActive || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-            if (code) {
-                stopScanner();
-                const clientId = code.data.trim();
-                if (clientId.length > 0) {
-                    localStorage.setItem('google_client_id', clientId);
-                    showMessage(setupMessage, 'Client ID captured!', 'success');
-                    setTimeout(() => showScreen(screenSignin), 1000);
-                }
-            }
+            if (video.srcObject) video.srcObject.getTracks().forEach(t=>t.stop());
+            qrContainer.style.display = 'none'; scanStatus.style.display = 'none'; btnScan.textContent = '📷 Scan Client ID QR';
         }
 
         // Manual entry
         btnManualSave.addEventListener('click', () => {
-            const clientId = manualInput.value.trim();
-            if (!clientId) { showMessage(setupMessage, 'Please enter a Client ID', 'error'); return; }
-            localStorage.setItem('google_client_id', clientId);
-            showMessage(setupMessage, 'Client ID saved!', 'success');
-            setTimeout(() => { manualInput.value = ''; showScreen(screenSignin); }, 1000);
+            const id = manualInput.value.trim();
+            if (!id) { showMessage(setupMessage, 'Enter Client ID', 'error'); return; }
+            localStorage.setItem('google_client_id', id);
+            showMessage(setupMessage, 'Saved!', 'success');
+            setTimeout(() => showScreen(screenSignin), 800);
         });
 
         // Fetch Calendar
         async function fetchEvents() {
             calendarLoading.style.display = 'block';
-            calendarEvents.style.display = 'none';
-            calendarEmpty.style.display = 'none';
-            calendarError.style.display = 'none';
+            calendarEvents.style.display = 'none'; calendarEmpty.style.display = 'none'; calendarError.style.display = 'none';
             
             const now = new Date();
-            todayDateLabel.textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            todayDateLabel.textContent = now.toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
             
-            const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-            const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-            
-            const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=' + encodeURIComponent(start) + '&timeMax=' + encodeURIComponent(end) + '&singleEvents=true&orderBy=startTime';
+            const start = new Date(now.getFullYear(),now.getMonth(),now.getDate()).toISOString();
+            const end = new Date(now.getFullYear(),now.getMonth(),now.getDate()+1).toISOString();
             
             try {
-                const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + accessToken } });
-                if (!resp.ok) throw new Error('Failed to fetch events');
+                const resp = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}&singleEvents=true&orderBy=startTime`, {
+                    headers: { 'Authorization': 'Bearer ' + accessToken }
+                });
+                if (!resp.ok) throw new Error('Failed to fetch');
                 const data = await resp.json();
-                
                 calendarLoading.style.display = 'none';
+                
                 if (!data.items || data.items.length === 0) { calendarEmpty.style.display = 'block'; return; }
                 
                 calendarEvents.innerHTML = data.items.map(ev => {
                     const s = ev.start?.dateTime ? new Date(ev.start.dateTime) : null;
                     const e = ev.end?.dateTime ? new Date(ev.end.dateTime) : null;
-                    const time = s ? (e ? formatTime(s) + ' – ' + formatTime(e) : formatTime(s)) : 'All Day';
-                    return '<div class="timeline-event"><div class="event-time">' + escapeHtml(time) + '</div><div class="event-title">' + escapeHtml(ev.summary || '(No title)') + '</div>' + (ev.location ? '<div class="event-location">📍 ' + escapeHtml(ev.location) + '</div>' : '') + '</div>';
+                    const t = s ? (e ? formatTime(s)+' – '+formatTime(e) : formatTime(s)) : 'All Day';
+                    return '<div class="timeline-event"><div class="event-time">'+esc(t)+'</div><div class="event-title">'+esc(ev.summary||'(No title)')+'</div>'+(ev.location?'<div class="event-location">📍 '+esc(ev.location)+'</div>':'')+'</div>';
                 }).join('');
                 calendarEvents.style.display = 'block';
-            } catch (err) {
-                calendarLoading.style.display = 'none';
-                calendarError.textContent = 'Error: ' + err.message;
-                calendarError.style.display = 'block';
-            }
+            } catch(err) { calendarLoading.style.display = 'none'; calendarError.textContent='Error: '+err.message; calendarError.style.display='block'; }
         }
         
-        function formatTime(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
-        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        function formatTime(d){return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
+        function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
 
         // Reset
         btnResetSignin.onclick = () => { localStorage.removeItem('google_client_id'); showScreen(screenSetup); };
-        btnSignout.onclick = () => { accessToken = null; localStorage.removeItem('oauth_access_token'); showScreen(screenSignin); };
-        btnResetCalendar.onclick = () => { localStorage.removeItem('google_client_id'); localStorage.removeItem('oauth_access_token'); accessToken = null; showScreen(screenSetup); };
+        btnSignout.onclick = () => { accessToken=null; localStorage.removeItem('oauth_access_token'); showScreen(screenSignin); };
+        btnResetCalendar.onclick = () => { localStorage.clear(); accessToken=null; showScreen(screenSetup); };
 
         // Init
         function init() {
-            // Check existing token
             const token = localStorage.getItem('oauth_access_token');
             const tokenTime = localStorage.getItem('oauth_token_time');
-            if (token && tokenTime && Date.now() - parseInt(tokenTime) < 3600000) {
+            if (token && tokenTime && Date.now()-parseInt(tokenTime) < 3600000) {
                 accessToken = token;
                 showScreen(screenCalendar);
                 fetchEvents();
                 return;
             }
-            
             const clientId = localStorage.getItem('google_client_id');
-            if (clientId && clientId.trim().length > 0) showScreen(screenSignin);
-            else showScreen(screenSetup);
+            if (clientId) showScreen(screenSignin); else showScreen(screenSetup);
         }
-
         init();
     </script>
 </body>
