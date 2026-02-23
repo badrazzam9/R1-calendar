@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <title>Google Calendar</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -73,9 +74,21 @@
         </div>
         
         <div class="input-group">
-            <input type="text" id="client-id" placeholder="Client ID (xxxxx.apps.googleusercontent.com)">
-            <input type="password" id="client-secret" placeholder="Client Secret">
+            <div style="display:flex;gap:8px;">
+                <input type="text" id="client-id" placeholder="Client ID" style="flex:1;">
+                <button id="btn-scan-client-id" style="padding:12px 14px;background:#6c63ff;border:none;border-radius:8px;color:#fff;cursor:pointer;">📷</button>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <input type="password" id="client-secret" placeholder="Client Secret" style="flex:1;">
+                <button id="btn-scan-secret" style="padding:12px 14px;background:#6c63ff;border:none;border-radius:8px;color:#fff;cursor:pointer;">📷</button>
+            </div>
             <button id="btn-save-creds">Save Credentials</button>
+        </div>
+        
+        <!-- QR Scanner for credentials -->
+        <div id="qr-scanner-cred" style="display:none;width:100%;max-width:300px;margin:20px auto;">
+            <video id="qr-video-cred" playsinline autoplay style="width:100%;border-radius:12px;"></video>
+            <button id="btn-close-qr" class="btn btn-secondary" style="margin-top:12px;">Close Scanner</button>
         </div>
         
         <div id="setup-message" class="message"></div>
@@ -222,6 +235,62 @@
             showMessage(setupMessage, 'Credentials saved!', 'success');
             setTimeout(() => showScreen(screenSignin), 800);
         });
+
+        // QR Scanner for credentials
+        const qrScannerCred = document.getElementById('qr-scanner-cred');
+        const qrVideoCred = document.getElementById('qr-video-cred');
+        let qrStream = null;
+        let scanTarget = null;
+
+        async function startCredScanner(target) {
+            scanTarget = target;
+            qrScannerCred.style.display = 'block';
+            try {
+                qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                qrVideoCred.srcObject = qrStream;
+                qrVideoCred.play();
+            } catch(e) {
+                showMessage(setupMessage, 'Camera error: ' + e.message, 'error');
+                qrScannerCred.style.display = 'none';
+            }
+        }
+
+        function stopCredScanner() {
+            if (qrStream) {
+                qrStream.getTracks().forEach(t => t.stop());
+                qrStream = null;
+            }
+            qrScannerCred.style.display = 'none';
+        }
+
+        document.getElementById('btn-scan-client-id').addEventListener('click', () => startCredScanner('client-id'));
+        document.getElementById('btn-scan-secret').addEventListener('click', () => startCredScanner('client-secret'));
+        document.getElementById('btn-close-qr').addEventListener('click', stopCredScanner);
+
+        // Scan loop
+        const qrCanvas = document.createElement('canvas');
+        const qrCtx = qrCanvas.getContext('2d');
+        function scanCredLoop() {
+            if (!qrStream || qrScannerCred.style.display === 'none') return;
+            if (qrVideoCred.readyState === qrVideoCred.HAVE_ENOUGH_DATA) {
+                qrCanvas.width = qrVideoCred.videoWidth;
+                qrCanvas.height = qrVideoCred.videoHeight;
+                qrCtx.drawImage(qrVideoCred, 0, 0);
+                const code = jsQR(qrCtx.getImageData(0,0,qrCanvas.width,qrCanvas.height).data, qrCanvas.width, qrCanvas.height);
+                if (code) {
+                    const data = code.data.trim();
+                    if (scanTarget === 'client-id') {
+                        document.getElementById('client-id').value = data;
+                    } else if (scanTarget === 'client-secret') {
+                        document.getElementById('client-secret').value = data;
+                    }
+                    stopCredScanner();
+                    showMessage(setupMessage, 'Scanned!', 'success');
+                }
+            }
+            requestAnimationFrame(scanCredLoop);
+        }
+        qrVideoCred.onloadedmetadata = () => requestAnimationFrame(scanCredLoop);
 
         // Open Google OAuth - use redirect_oob
         btnOpenGoogle.addEventListener('click', () => {
