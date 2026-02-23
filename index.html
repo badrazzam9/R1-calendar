@@ -309,7 +309,7 @@ function submitManualToken() {
     submitTokenValue(token);
 }
 
-// Fetch events
+// Fetch events - get ALL events, filter client-side
 function fetchEvents() {
     document.getElementById('cal-loading').style.display = 'block';
     document.getElementById('events-list').style.display = 'none';
@@ -319,10 +319,15 @@ function fetchEvents() {
     var now = new Date();
     document.getElementById('date-label').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     
-    var start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    var end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+    // Get start and end of today in local time
+    var startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    var endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
     
-    var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=' + encodeURIComponent(start) + '&timeMax=' + encodeURIComponent(end) + '&singleEvents=true&orderBy=startTime';
+    var start = startOfDay.toISOString();
+    var end = endOfDay.toISOString();
+    
+    // Try fetching all upcoming events
+    var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100';
     
     fetch(url, { headers: { 'Authorization': 'Bearer ' + accessToken } })
     .then(function(r) {
@@ -332,13 +337,38 @@ function fetchEvents() {
     })
     .then(function(data) {
         document.getElementById('cal-loading').style.display = 'none';
-        if (!data.items || data.items.length === 0) {
+        
+        // Filter to today's events
+        var now = new Date();
+        var startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        
+        var todayEvents = [];
+        if (data.items) {
+            for (var i = 0; i < data.items.length; i++) {
+                var ev = data.items[i];
+                if (ev.start && ev.start.dateTime) {
+                    var evStart = new Date(ev.start.dateTime);
+                    if (evStart >= startOfDay && evStart < endOfDay) {
+                        todayEvents.push(ev);
+                    }
+                } else if (ev.start && ev.start.date) {
+                    // All-day event
+                    var evDate = new Date(ev.start.date);
+                    if (evDate >= startOfDay && evDate < endOfDay) {
+                        todayEvents.push(ev);
+                    }
+                }
+            }
+        }
+        
+        if (todayEvents.length === 0) {
             document.getElementById('cal-empty').style.display = 'block';
             return;
         }
         var html = '';
-        for (var i = 0; i < data.items.length; i++) {
-            var ev = data.items[i];
+        for (var i = 0; i < todayEvents.length; i++) {
+            var ev = todayEvents[i];
             var time = ev.start && ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'}) : 'All Day';
             html += '<div class="event"><div class="event-time">' + time + '</div><div class="event-title">' + (ev.summary || '(No title)') + '</div></div>';
         }
