@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signing in...</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e; color: #fff; 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; min-height: 100vh; margin: 0; padding: 20px;
+            text-align: center;
+        }
+        .spinner { 
+            width: 50px; height: 50px; border: 4px solid #2a2a4a; 
+            border-top-color: #6c63ff; border-radius: 50%; 
+            animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        h1 { font-size: 1.5rem; margin-bottom: 10px; }
+        p { color: #9a9abf; }
+        .success { color: #2ed573; }
+        .error { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="spinner"></div>
+    <h1 id="status">Signing you in...</h1>
+    <p id="message">Please wait</p>
+
+    <script>
+        const messageEl = document.getElementById('message');
+        const statusEl = document.getElementById('status');
+
+        // Get config from URL params
+        const params = new URLSearchParams(window.location.search);
+        const clientId = params.get('client_id');
+        const redirectUri = params.get('redirect_uri') || window.location.origin + window.location.pathname;
+
+        if (!clientId) {
+            // No client_id - we're being called as redirect from Google
+            handleOAuthCallback();
+        } else {
+            // Client ID provided - start OAuth flow
+            startOAuth();
+        }
+
+        async function startOAuth() {
+            const state = Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('oauth_state', state);
+            sessionStorage.setItem('oauth_return', 'calendar');
+
+            const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
+                'client_id=' + encodeURIComponent(clientId) +
+                '&redirect_uri=' + encodeURIComponent(redirectUri) +
+                '&response_type=token' +
+                '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly') +
+                '&include_granted_scopes=true' +
+                '&state=' + encodeURIComponent(state);
+
+            window.location.href = authUrl;
+        }
+
+        function handleOAuthCallback() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
+            const state = params.get('state');
+            const error = params.get('error');
+            const storedState = sessionStorage.getItem('oauth_state');
+
+            // Clear hash
+            window.location.hash = '';
+
+            if (error) {
+                statusEl.textContent = 'Error';
+                statusEl.className = 'error';
+                messageEl.textContent = error + '. Redirecting...';
+                setTimeout(() => {
+                    window.location.href = '/R1-calendar/';
+                }, 2000);
+                return;
+            }
+
+            if (token && state === storedState) {
+                // Store token (shared with calendar app since same domain)
+                localStorage.setItem('oauth_access_token', token);
+                localStorage.setItem('oauth_token_time', Date.now().toString());
+                
+                statusEl.textContent = 'Success!';
+                statusEl.className = 'success';
+                messageEl.textContent = 'Go back to the calendar app';
+                
+                // Redirect to calendar app
+                setTimeout(() => {
+                    window.location.href = '/R1-calendar/';
+                }, 1000);
+            } else if (token && !storedState) {
+                // Token from different session, store it
+                localStorage.setItem('oauth_access_token', token);
+                localStorage.setItem('oauth_token_time', Date.now().toString());
+                
+                statusEl.textContent = 'Success!';
+                statusEl.className = 'success';
+                messageEl.textContent = 'Go back to the calendar app';
+                
+                setTimeout(() => {
+                    window.location.href = '/R1-calendar/';
+                }, 1000);
+            } else {
+                statusEl.textContent = 'Error';
+                statusEl.className = 'error';
+                messageEl.textContent = 'Authentication failed. Redirecting...';
+                setTimeout(() => {
+                    window.location.href = '/R1-calendar/';
+                }, 2000);
+            }
+        }
+    </script>
+</body>
+</html>
